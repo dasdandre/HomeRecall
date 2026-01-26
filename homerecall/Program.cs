@@ -43,7 +43,23 @@ if (!app.Environment.IsDevelopment())
 
 // Ingress usually handles SSL termination, so HTTP is fine internally, but standard practice:
 // app.UseHttpsRedirection(); 
+
+// Ensure Static Files are served correctly even behind Ingress paths
 app.UseStaticFiles();
+
+// Path Base handling for Ingress
+// HA Ingress sets HTTP_X_INGRESS_PATH header. If present, we should use it as PathBase.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Headers.TryGetValue("X-Ingress-Path", out var ingressPath))
+    {
+        context.Request.PathBase = new PathString(ingressPath);
+    }
+    await next();
+});
+
+app.UseRouting(); // UseRouting must come before Antiforgery and Endpoint Mapping if we manipulate PathBase
+
 app.UseAntiforgery();
 
 
