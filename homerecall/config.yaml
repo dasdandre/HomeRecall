@@ -1,5 +1,5 @@
 name: "HomeRecall"
-version: "1.0.15"
+version: "1.0.16"
 slug: "homerecall"
 description: "A complete rewrite of TasmoBackup using .NET 10, supporting Tasmota, WLED, and Shelly."
 url: "https://github.com/dasdandre/HomeRecall"
@@ -10,6 +10,7 @@ arch:
   - armv7
 startup: services
 boot: auto
+init: false
 map:
   - config:rw
   - share:rw
