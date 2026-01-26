@@ -1,0 +1,50 @@
+@using HomeRecall
+@inject BackupContext Context
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @bind-IsValid="@success">
+            <MudTextField @bind-Value="NewName" Label="Device Name" Required="true" RequiredError="Name cannot be empty." />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="@(!success)">Rename</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int DeviceId { get; set; }
+    [Parameter] public string CurrentName { get; set; } = string.Empty;
+
+    public string NewName { get; set; } = string.Empty;
+
+    private bool success;
+
+    protected override void OnInitialized()
+    {
+        NewName = CurrentName;
+    }
+
+    void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        var device = await Context.Devices.FindAsync(DeviceId);
+        if (device != null)
+        {
+            device.Name = NewName;
+            await Context.SaveChangesAsync();
+            Snackbar.Add("Device renamed", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            Snackbar.Add("Device not found", Severity.Error);
+            MudDialog.Cancel();
+        }
+    }
+}

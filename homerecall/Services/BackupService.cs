@@ -23,8 +23,8 @@ public class BackupService : IBackupService
         _httpClientFactory = httpClientFactory;
         _logger = logger;
         
-        // In HA Addon, backups should be in /backup or a mounted volume
-        _backupDirectory = Environment.GetEnvironmentVariable("backup_path") ?? "/backup";
+        // In HA Addon, backups should be in /backup or a mounted volume. Locally use ./backups
+        _backupDirectory = Environment.GetEnvironmentVariable("backup_path") ?? Path.Combine(Directory.GetCurrentDirectory(), "backups");
         if (!Directory.Exists(_backupDirectory))
         {
             Directory.CreateDirectory(_backupDirectory);

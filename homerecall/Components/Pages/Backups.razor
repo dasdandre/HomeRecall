@@ -103,7 +103,7 @@ else
 
             if (!otherBackupsUsingFile)
             {
-                var backupDirectory = Environment.GetEnvironmentVariable("backup_path") ?? "/backup";
+                var backupDirectory = Environment.GetEnvironmentVariable("backup_path") ?? Path.Combine(Directory.GetCurrentDirectory(), "backups");
                 var path = Path.Combine(backupDirectory, backup.StoragePath);
                 if (File.Exists(path))
                 {

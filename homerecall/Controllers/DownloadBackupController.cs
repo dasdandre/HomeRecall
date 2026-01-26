@@ -13,7 +13,7 @@ public class DownloadBackupController : ControllerBase
     public DownloadBackupController(BackupContext context)
     {
         _context = context;
-        _backupDirectory = Environment.GetEnvironmentVariable("backup_path") ?? "/backup";
+        _backupDirectory = Environment.GetEnvironmentVariable("backup_path") ?? Path.Combine(Directory.GetCurrentDirectory(), "backups");
     }
 
     [HttpGet("{id}")]

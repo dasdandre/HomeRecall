@@ -1,21 +1,30 @@
 using Microsoft.EntityFrameworkCore;
 using HomeRecall;
+using HomeRecall.Components;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Services.AddControllers();
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<HomeRecall.Services.IBackupService, HomeRecall.Services.BackupService>();
 
+builder.Services.AddMudServices();
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddMudServices();  
-
 // Setup SQLite
-// In HA Addon, config is usually in /config
-var dbPath = Path.Combine(Environment.GetEnvironmentVariable("persist_path") ?? "/config", "homerecall.db");
+// In HA Addon, config is usually in /config. Locally we use ./data
+var persistPath = Environment.GetEnvironmentVariable("persist_path");
+if (string.IsNullOrEmpty(persistPath))
+{
+    persistPath = Path.Combine(Directory.GetCurrentDirectory(), "data");
+    Directory.CreateDirectory(persistPath);
+}
+
+var dbPath = Path.Combine(persistPath, "homerecall.db");
 builder.Services.AddDbContext<BackupContext>(options =>
     options.UseSqlite($"Data Source={dbPath}"));
 
@@ -35,8 +44,8 @@ if (!app.Environment.IsDevelopment())
 // Ingress usually handles SSL termination, so HTTP is fine internally, but standard practice:
 // app.UseHttpsRedirection(); 
 app.UseStaticFiles();
+app.UseAntiforgery();
 
-app.UseRouting();
 
 app.MapControllers();
 

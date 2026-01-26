@@ -7,44 +7,87 @@
 @inject IDialogService DialogService
 @inject NavigationManager NavigationManager
 
-<MudText Typo="Typo.h4" Class="mb-4">Devices</MudText>
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+    <div class="d-flex justify-space-between align-center mb-6">
+        <MudText Typo="Typo.h4">Geräte</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddDeviceDialog" StartIcon="@Icons.Material.Filled.Add">
+            Neues Gerät
+        </MudButton>
+    </div>
 
-<MudStack Row="true" Class="mb-4">
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddDeviceDialog" StartIcon="@Icons.Material.Filled.Add">Add Device</MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="BackupSelectedDevices" Disabled="@(!_selectedItems.Any())" StartIcon="@Icons.Material.Filled.Backup">Backup Selected</MudButton>
-</MudStack>
+    @if (_loading)
+    {
+         <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-7" />
+    }
+    else if (!_devices.Any())
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Filled">Keine Geräte vorhanden. Fügen Sie eines hinzu!</MudAlert>
+    }
+    else
+    {
+        <MudTable Items="@_devices" Hover="true" Elevation="3" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>IP Adresse</MudTh>
+                <MudTh>Typ</MudTh>
+                <MudTh>Letztes Backup</MudTh>
+                <MudTh Style="text-align:right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name">
+                    <MudText Typo="Typo.body1" Style="font-weight: 500;">@context.Name</MudText>
+                </MudTd>
+                <MudTd DataLabel="IP Adresse">
+                    <MudLink Href="@($"http://{context.IpAddress}")" Target="_blank" Underline="Underline.Hover">@context.IpAddress</MudLink>
+                </MudTd>
+                <MudTd DataLabel="Typ">
+                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@context.Type</MudChip>
+                </MudTd>
+                <MudTd DataLabel="Letztes Backup">
+                    @if (context.LastBackup.HasValue)
+                    {
+                        <div class="d-flex align-center gap-1">
+                             <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="Color.Default"/>
+                             <MudText Typo="Typo.body2">@context.LastBackup.Value.ToLocalTime().ToString("g")</MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Default">-</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Aktionen" Style="text-align:right">
+                    <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+                         <MudButton Variant="Variant.Outlined" 
+                                    Color="Color.Primary" 
+                                    Size="Size.Small" 
+                                    StartIcon="@Icons.Material.Filled.Backup"
+                                    OnClick="@(() => BackupDevice(context))">
+                             Backup
+                         </MudButton>
 
-<MudDataGrid T="Device" Items="@_devices" MultiSelection="true" @bind-SelectedItems="_selectedItems" Filterable="true" SortMode="SortMode.Multiple">
-    <Columns>
-        <SelectColumn T="Device" />
-        <PropertyColumn Property="x => x.Name" Title="Name" />
-        <PropertyColumn Property="x => x.IpAddress" Title="IP Address" />
-        <PropertyColumn Property="x => x.Type" Title="Type" />
-        <PropertyColumn Property="x => x.LastBackup" Title="Last Backup">
-             <CellTemplate>
-                @if (context.Item.LastBackup.HasValue)
-                {
-                    @context.Item.LastBackup.Value.ToLocalTime().ToString("g")
-                }
-                else
-                {
-                    <MudText Color="Color.Default">-</MudText>
-                }
-            </CellTemplate>
-        </PropertyColumn>
-        <TemplateColumn CellClass="d-flex justify-end">
-            <CellTemplate>
-                 <MudIconButton Icon="@Icons.Material.Filled.History" Color="Color.Primary" OnClick="@(() => NavigateToBackups(context.Item.Id))" Tooltip="View Backups" />
-                 <MudIconButton Icon="@Icons.Material.Filled.Backup" Color="Color.Secondary" OnClick="@(() => BackupDevice(context.Item))" Tooltip="Backup Now" />
-                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => DeleteDevice(context.Item))" Tooltip="Delete" />
-            </CellTemplate>
-        </TemplateColumn>
-    </Columns>
-</MudDataGrid>
+                        <MudButton Variant="Variant.Outlined" 
+                                   Color="Color.Secondary" 
+                                   Size="Size.Small" 
+                                   StartIcon="@Icons.Material.Filled.History"
+                                   OnClick="@(() => NavigateToBackups(context.Id))">
+                            Backups (@context.Backups.Count)
+                        </MudButton>
+                        
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                             <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => RenameDevice(context))">Umbenennen</MudMenuItem>
+                             <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => DeleteDevice(context))" IconColor="Color.Error">Löschen</MudMenuItem>
+                        </MudMenu>
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudContainer>
 
 @code {
     private List<Device> _devices = new();
-    private HashSet<Device> _selectedItems = new();
+    private bool _loading = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -53,7 +96,9 @@
 
     private async Task LoadDevices()
     {
+        _loading = true;
         _devices = await Context.Devices.Include(d => d.Backups).ToListAsync();
+        _loading = false;
     }
 
     private void NavigateToBackups(int deviceId)
@@ -64,52 +109,62 @@
     private async Task OpenAddDeviceDialog()
     {
         var parameters = new DialogParameters();
-        var dialog = DialogService.Show<AddDeviceDialog>("Add Device", parameters);
+        var dialog = await DialogService.ShowAsync<AddDeviceDialog>("Gerät hinzufügen", parameters);
         var result = await dialog.Result;
 
-        if (!result.Canceled)
+        if (result != null && !result.Canceled)
         {
             await LoadDevices();
-            StateHasChanged();
+        }
+    }
+
+    private async Task RenameDevice(Device device)
+    {
+        var parameters = new DialogParameters
+        {
+            { nameof(RenameDeviceDialog.DeviceId), device.Id },
+            { nameof(RenameDeviceDialog.CurrentName), device.Name }
+        };
+        
+        var dialog = await DialogService.ShowAsync<RenameDeviceDialog>("Gerät umbenennen", parameters);
+        var result = await dialog.Result;
+        
+        if (result != null && !result.Canceled)
+        {
+            await LoadDevices();
         }
     }
 
     private async Task BackupDevice(Device device)
     {
-        Snackbar.Add($"Starting backup for {device.Name}...", Severity.Info);
-        await BackupService.PerformBackupAsync(device.Id);
-        await LoadDevices();
-        Snackbar.Add($"Backup for {device.Name} completed.", Severity.Success);
-    }
-
-    private async Task BackupSelectedDevices()
-    {
-        var count = _selectedItems.Count;
-        Snackbar.Add($"Starting backup for {count} devices...", Severity.Info);
-        
-        foreach (var device in _selectedItems)
+        Snackbar.Add($"Backup für {device.Name} gestartet...", Severity.Info);
+        // Wir lassen das asynchron laufen, aber aktualisieren die Liste danach nicht sofort, da es dauern kann.
+        // Optional könnte man hier einen Spinner am Button anzeigen.
+        try 
         {
-             await BackupService.PerformBackupAsync(device.Id);
+            await BackupService.PerformBackupAsync(device.Id);
+            await LoadDevices(); // Reload to update "Last Backup" and count
+            Snackbar.Add($"Backup für {device.Name} erfolgreich.", Severity.Success);
         }
-        
-        await LoadDevices();
-        _selectedItems.Clear();
-        Snackbar.Add($"Backup for {count} devices completed.", Severity.Success);
+        catch(Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Backup: {ex.Message}", Severity.Error);
+        }
     }
     
     private async Task DeleteDevice(Device device)
     {
          bool? result = await DialogService.ShowMessageBox(
-            "Delete Device", 
-            $"Are you sure you want to delete {device.Name}? This will also delete all associated backups.", 
-            yesText:"Delete", cancelText:"Cancel");
+            "Gerät löschen", 
+            $"Sind Sie sicher, dass Sie '{device.Name}' löschen möchten? Alle zugehörigen Backups werden ebenfalls gelöscht.", 
+            yesText:"Löschen", cancelText:"Abbrechen");
             
          if (result == true)
          {
              Context.Devices.Remove(device);
              await Context.SaveChangesAsync();
              await LoadDevices();
-             Snackbar.Add("Device deleted", Severity.Success);
+             Snackbar.Add("Gerät gelöscht", Severity.Success);
          }
     }
 }
