@@ -1,5 +1,5 @@
 name: "HomeRecall"
-version: "1.0.10"
+version: "1.0.11"
 slug: "homerecall"
 description: "A complete rewrite of TasmoBackup using .NET 10, supporting Tasmota, WLED, and Shelly."
 url: "https://github.com/dasdandre/HomeRecall"
@@ -8,7 +8,7 @@ arch:
   - amd64
   - armhf
   - armv7
-startup: application
+startup: services
 boot: auto
 map:
   - config:rw
@@ -17,7 +17,7 @@ map:
 options:
   log_level: info
 schema:
-  log_level: list(trace, debug, info, notice, warning, error, fatal)
+  log_level: "list(trace|debug|info|notice|warning|error|fatal)?"
 ingress: true
 ingress_port: 8080
 panel_icon: mdi:cloud-upload
