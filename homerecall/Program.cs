@@ -8,6 +8,12 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<HomeRecall.Services.IBackupService, HomeRecall.Services.BackupService>();
 
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+builder.Services.AddMatBlazor(); // MatBlazor Dienste registrieren
+builder.Services.AddMatToaster(); // Optional für Benachrichtigungen
+
 // Setup SQLite
 // In HA Addon, config is usually in /config
 var dbPath = Path.Combine(Environment.GetEnvironmentVariable("persist_path") ?? "/config", "homerecall.db");
@@ -43,9 +49,8 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
 });
 
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
 // Ensure DB created
 using (var scope = app.Services.CreateScope())
