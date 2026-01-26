@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
+@inject IJSRuntime JS
 
-<MudThemeProvider />
+<MudThemeProvider Theme="_theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -19,3 +20,89 @@
         </MudContainer>
     </MudMainContent>
 </MudLayout>
+
+@code {
+    private MudTheme _theme = new MudTheme();
+    private DotNetObjectReference<MainLayout>? _objRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _objRef = DotNetObjectReference.Create(this);
+            await ApplyHomeAssistantColors();
+            await JS.InvokeVoidAsync("observeHaThemeChange", _objRef);
+        }
+    }
+
+    private async Task ApplyHomeAssistantColors()
+    {
+        try 
+        {
+            var colors = await JS.InvokeAsync<HaColors>("getHaColors");
+            UpdateTheme(colors);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error applying HA colors: {ex.Message}");
+        }
+    }
+
+    [JSInvokable]
+    public void UpdateThemeFromJs(HaColors colors)
+    {
+        UpdateTheme(colors);
+        StateHasChanged();
+    }
+
+    private void UpdateTheme(HaColors colors)
+    {
+         _theme.PaletteLight = new PaletteLight
+         {
+             Primary = colors.Primary,
+             Secondary = colors.Secondary,
+             AppbarBackground = colors.AppBarBackground,
+             AppbarText = colors.AppBarText,
+             Background = colors.Background,
+             Surface = colors.Surface,
+             TextPrimary = colors.TextPrimary,
+             TextSecondary = colors.TextSecondary,
+             DrawerBackground = colors.DrawerBackground,
+             DrawerText = colors.DrawerText
+         };
+
+         // Also update dark palette with same values, as HA switches CSS vars dynamically
+         _theme.PaletteDark = new PaletteDark
+         {
+              Primary = colors.Primary,
+              Secondary = colors.Secondary,
+              AppbarBackground = colors.AppBarBackground,
+              AppbarText = colors.AppBarText,
+              Background = colors.Background,
+              Surface = colors.Surface,
+              TextPrimary = colors.TextPrimary,
+              TextSecondary = colors.TextSecondary,
+              DrawerBackground = colors.DrawerBackground,
+              DrawerText = colors.DrawerText
+         };
+    }
+
+    public void Dispose()
+    {
+        _objRef?.Dispose();
+    }
+
+    public class HaColors
+    {
+        public string Primary { get; set; } = "#03a9f4";
+        public string Secondary { get; set; } = "#ff9800";
+        public string Background { get; set; } = "#fafafa";
+        public string Surface { get; set; } = "#ffffff";
+        public string TextPrimary { get; set; } = "#212121";
+        public string TextSecondary { get; set; } = "#727272";
+        public string AppBarBackground { get; set; } = "#03a9f4";
+        public string AppBarText { get; set; } = "#ffffff";
+        public string DrawerBackground { get; set; } = "#ffffff";
+        public string DrawerText { get; set; } = "#212121";
+    }
+}
