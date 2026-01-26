@@ -1,0 +1,115 @@
+@page "/"
+@using HomeRecall.Services
+@using Microsoft.EntityFrameworkCore
+@inject BackupContext Context
+@inject IBackupService BackupService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+
+<MudText Typo="Typo.h4" Class="mb-4">Devices</MudText>
+
+<MudStack Row="true" Class="mb-4">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddDeviceDialog" StartIcon="@Icons.Material.Filled.Add">Add Device</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="BackupSelectedDevices" Disabled="@(!_selectedItems.Any())" StartIcon="@Icons.Material.Filled.Backup">Backup Selected</MudButton>
+</MudStack>
+
+<MudDataGrid T="Device" Items="@_devices" MultiSelection="true" @bind-SelectedItems="_selectedItems" Filterable="true" SortMode="SortMode.Multiple">
+    <Columns>
+        <SelectColumn T="Device" />
+        <PropertyColumn Property="x => x.Name" Title="Name" />
+        <PropertyColumn Property="x => x.IpAddress" Title="IP Address" />
+        <PropertyColumn Property="x => x.Type" Title="Type" />
+        <PropertyColumn Property="x => x.LastBackup" Title="Last Backup">
+             <CellTemplate>
+                @if (context.Item.LastBackup.HasValue)
+                {
+                    @context.Item.LastBackup.Value.ToLocalTime().ToString("g")
+                }
+                else
+                {
+                    <MudText Color="Color.Default">-</MudText>
+                }
+            </CellTemplate>
+        </PropertyColumn>
+        <TemplateColumn CellClass="d-flex justify-end">
+            <CellTemplate>
+                 <MudIconButton Icon="@Icons.Material.Filled.History" Color="Color.Primary" OnClick="@(() => NavigateToBackups(context.Item.Id))" Tooltip="View Backups" />
+                 <MudIconButton Icon="@Icons.Material.Filled.Backup" Color="Color.Secondary" OnClick="@(() => BackupDevice(context.Item))" Tooltip="Backup Now" />
+                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => DeleteDevice(context.Item))" Tooltip="Delete" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</MudDataGrid>
+
+@code {
+    private List<Device> _devices = new();
+    private HashSet<Device> _selectedItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDevices();
+    }
+
+    private async Task LoadDevices()
+    {
+        _devices = await Context.Devices.Include(d => d.Backups).ToListAsync();
+    }
+
+    private void NavigateToBackups(int deviceId)
+    {
+        NavigationManager.NavigateTo($"/backups/{deviceId}");
+    }
+
+    private async Task OpenAddDeviceDialog()
+    {
+        var parameters = new DialogParameters();
+        var dialog = DialogService.Show<AddDeviceDialog>("Add Device", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadDevices();
+            StateHasChanged();
+        }
+    }
+
+    private async Task BackupDevice(Device device)
+    {
+        Snackbar.Add($"Starting backup for {device.Name}...", Severity.Info);
+        await BackupService.PerformBackupAsync(device.Id);
+        await LoadDevices();
+        Snackbar.Add($"Backup for {device.Name} completed.", Severity.Success);
+    }
+
+    private async Task BackupSelectedDevices()
+    {
+        var count = _selectedItems.Count;
+        Snackbar.Add($"Starting backup for {count} devices...", Severity.Info);
+        
+        foreach (var device in _selectedItems)
+        {
+             await BackupService.PerformBackupAsync(device.Id);
+        }
+        
+        await LoadDevices();
+        _selectedItems.Clear();
+        Snackbar.Add($"Backup for {count} devices completed.", Severity.Success);
+    }
+    
+    private async Task DeleteDevice(Device device)
+    {
+         bool? result = await DialogService.ShowMessageBox(
+            "Delete Device", 
+            $"Are you sure you want to delete {device.Name}? This will also delete all associated backups.", 
+            yesText:"Delete", cancelText:"Cancel");
+            
+         if (result == true)
+         {
+             Context.Devices.Remove(device);
+             await Context.SaveChangesAsync();
+             await LoadDevices();
+             Snackbar.Add("Device deleted", Severity.Success);
+         }
+    }
+}

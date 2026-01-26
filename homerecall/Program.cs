@@ -4,15 +4,14 @@ using HomeRecall;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<HomeRecall.Services.IBackupService, HomeRecall.Services.BackupService>();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddMatBlazor(); // MatBlazor Dienste registrieren
-builder.Services.AddMatToaster(); // Optional für Benachrichtigungen
+builder.Services.AddMudServices();  
 
 // Setup SQLite
 // In HA Addon, config is usually in /config
@@ -39,7 +38,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseAuthorization();
+app.MapControllers();
 
 // Ingress Setup:
 // Home Assistant Ingress sends requests to the root, but we need to handle the base path correctly if we were using it directly.
@@ -49,8 +48,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
 });
 
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 // Ensure DB created
 using (var scope = app.Services.CreateScope())
