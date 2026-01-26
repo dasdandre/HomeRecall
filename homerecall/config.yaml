@@ -1,5 +1,5 @@
 name: "HomeRecall"
-version: "1.0.19"
+version: "1.0.20"
 slug: "homerecall"
 description: "A complete rewrite of TasmoBackup using .NET 10, supporting Tasmota, WLED, and Shelly."
 url: "https://github.com/dasdandre/HomeRecall"

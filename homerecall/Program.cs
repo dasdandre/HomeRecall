@@ -46,11 +46,20 @@ if (!app.Environment.IsDevelopment())
 
 // Path Base handling for Ingress MUST be before Static Files
 // HA Ingress sets HTTP_X_INGRESS_PATH header. If present, we should use it as PathBase.
+// However, the header might be 'X-Ingress-Path' or handled by UseForwardedHeaders if configured correctly.
+// Let's make sure we check the header explicitly.
+var ingressPath = Environment.GetEnvironmentVariable("HTTP_X_INGRESS_PATH");
+if (!string.IsNullOrEmpty(ingressPath))
+{
+    app.UsePathBase(ingressPath);
+}
+
 app.Use(async (context, next) =>
 {
-    if (context.Request.Headers.TryGetValue("X-Ingress-Path", out var ingressPath))
+    // Fallback: Check header dynamically if env var wasn't enough (though Ingress usually sets it reliably)
+    if (context.Request.Headers.TryGetValue("X-Ingress-Path", out var headerPath))
     {
-        context.Request.PathBase = new PathString(ingressPath);
+        context.Request.PathBase = new PathString(headerPath);
     }
     await next();
 });
