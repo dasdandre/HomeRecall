@@ -11,10 +11,17 @@ RUN dotnet restore
 
 # Rest kopieren und bauen
 COPY . ./
-RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish -c Release -o /app/publish
 
 # STAGE 2: Das eigentliche Add-on
 FROM $BUILD_FROM
+
+# S6-Overlay Setup
+# Wenn das Base-Image bereits s6 verwendet (was bei HA Addons der Fall ist), 
+# müssen wir sicherstellen, dass wir es korrekt nutzen oder nicht stören.
+# Der Fehler "s6-overlay-suexec: fatal: can only run as pid 1" deutet darauf hin, 
+# dass s6 versucht zu starten, aber nicht PID 1 ist, oder wir versuchen Befehle falsch auszuführen.
+# HA Addons starten standardmäßig via s6 init.
 
 # Umgebungsvariablen für .NET
 ENV \
@@ -31,9 +38,23 @@ RUN \
         libintl \
         libssl3 \
         libstdc++ \
-        zlib
+        zlib \
+        wget \
+        bash
+
+# Install .NET Runtime
+RUN wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh \
+    && chmod +x ./dotnet-install.sh \
+    && ./dotnet-install.sh --channel 8.0 --runtime aspnetcore --install-dir /usr/share/dotnet \
+    && ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
 
 WORKDIR /app
 COPY --from=build-env /app/publish .
 
-CMD [ "dotnet", "HomeRecall.dll" ]
+# S6 Service Skript erstellen
+# Home Assistant Addons nutzen S6 Overlay zur Prozessverwaltung.
+# Wir müssen einen Service erstellen, damit S6 dotnet startet.
+COPY run.sh /
+RUN chmod a+x /run.sh
+
+CMD [ "/run.sh" ]
