@@ -44,22 +44,13 @@ if (!app.Environment.IsDevelopment())
 // Ingress usually handles SSL termination, so HTTP is fine internally, but standard practice:
 // app.UseHttpsRedirection(); 
 
-// Path Base handling for Ingress MUST be before Static Files
+// Path Base handling for Ingress
 // HA Ingress sets HTTP_X_INGRESS_PATH header. If present, we should use it as PathBase.
-// However, the header might be 'X-Ingress-Path' or handled by UseForwardedHeaders if configured correctly.
-// Let's make sure we check the header explicitly.
-var ingressPath = Environment.GetEnvironmentVariable("HTTP_X_INGRESS_PATH");
-if (!string.IsNullOrEmpty(ingressPath))
-{
-    app.UsePathBase(ingressPath);
-}
-
 app.Use(async (context, next) =>
 {
-    // Fallback: Check header dynamically if env var wasn't enough (though Ingress usually sets it reliably)
-    if (context.Request.Headers.TryGetValue("X-Ingress-Path", out var headerPath))
+    if (context.Request.Headers.TryGetValue("X-Ingress-Path", out var ingressPath))
     {
-        context.Request.PathBase = new PathString(headerPath);
+        context.Request.PathBase = new PathString(ingressPath);
     }
     await next();
 });
