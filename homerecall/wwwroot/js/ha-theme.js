@@ -1,12 +1,11 @@
-window.getHaColors = () => {
-    // Standard MudBlazor-ish Defaults but HA Style
+window.getHaColors = async () => {
     const defaults = {
-        primary: '#03a9f4',      // HA Blue
-        secondary: '#ff9800',    // HA Orange
-        background: '#fafafa',   // HA Light Grey
-        surface: '#ffffff',      // Card White
-        textPrimary: '#212121',  // Dark Text
-        textSecondary: '#727272',// Grey Text
+        primary: '#03a9f4',
+        secondary: '#ff9800',
+        background: '#fafafa',
+        surface: '#ffffff',
+        textPrimary: '#212121',
+        textSecondary: '#727272',
         appBarBackground: '#03a9f4',
         appBarText: '#ffffff',
         drawerBackground: '#ffffff',
@@ -14,7 +13,36 @@ window.getHaColors = () => {
     };
 
     try {
-        // Try to access the parent window (Home Assistant)
+        // Try to get the parent window (Home Assistant Ingress context)
+        const parentWindow = (window.parent && window.parent !== window) ? window.parent : window;
+        
+        // Check if hass object is available (HA 2024.1+)
+        if (parentWindow.hass && parentWindow.hass.themes) {
+            const themes = parentWindow.hass.themes;
+            const isDarkMode = parentWindow.hass.themes.darkMode || false;
+            const currentThemeName = parentWindow.hass.themes.theme || (isDarkMode ? 'dark' : 'light');
+            const currentTheme = themes.themes && themes.themes[currentThemeName] ? themes.themes[currentThemeName] : {};
+            
+            return {
+                isDarkMode: isDarkMode,
+                primary: currentTheme['--primary-color'] || defaults.primary,
+                secondary: currentTheme['--accent-color'] || defaults.secondary,
+                background: currentTheme['--primary-background-color'] || defaults.background,
+                surface: currentTheme['--card-background-color'] || defaults.surface,
+                textPrimary: currentTheme['--primary-text-color'] || defaults.textPrimary,
+                textSecondary: currentTheme['--secondary-text-color'] || defaults.textSecondary,
+                appBarBackground: currentTheme['--app-header-background-color'] || defaults.appBarBackground,
+                appBarText: currentTheme['--app-header-text-color'] || defaults.appBarText,
+                drawerBackground: currentTheme['--card-background-color'] || defaults.drawerBackground,
+                drawerText: currentTheme['--primary-text-color'] || defaults.drawerText
+            };
+        }
+    } catch (e) {
+        console.warn("Could not read from HA API, falling back to CSS variables", e);
+    }
+
+    // Fallback to CSS variables if API not available
+    try {
         const targetDoc = (window.parent && window.parent !== window) ? window.parent.document.documentElement : document.documentElement;
         const style = getComputedStyle(targetDoc);
 
@@ -23,7 +51,6 @@ window.getHaColors = () => {
             return val || null;
         };
 
-        // Detect if HA is in dark mode by checking for 'dark' class
         const isDarkMode = targetDoc.classList.contains('dark');
 
         if (getVal('--primary-color')) {
@@ -44,38 +71,43 @@ window.getHaColors = () => {
         return { isDarkMode: isDarkMode, ...defaults };
 
     } catch (e) {
-        // console.warn("Could not read colors from parent window (HA), using defaults.", e);
+        console.warn("Could not read colors, using defaults", e);
         return { isDarkMode: false, ...defaults };
     }
 };
 
 window.observeHaThemeChange = (dotNetHelper) => {
     try {
-        const targetNode = (window.parent && window.parent !== window) ? window.parent.document.documentElement : document.documentElement;
+        const parentWindow = (window.parent && window.parent !== window) ? window.parent : window;
         
-        // Configuration of the observer: watch for class changes (dark mode toggle) and style changes (color changes)
+        // If HA exposes a way to listen for theme changes, use it
+        if (parentWindow.hass && parentWindow.addEventListener) {
+            // Listen for custom HA theme change events
+            parentWindow.addEventListener('theme-changed', async () => {
+                const colors = await window.getHaColors();
+                dotNetHelper.invokeMethodAsync('UpdateThemeFromJs', colors);
+            });
+        }
+        
+        // Also fall back to MutationObserver for DOM changes
+        const targetNode = (window.parent && window.parent !== window) ? window.parent.document.documentElement : document.documentElement;
         const config = { attributes: true, attributeFilter: ['style', 'class'] };
 
-        // Callback function to execute when mutations are observed
         const callback = (mutationList, observer) => {
-            // Throttle slightly to avoid excessive updates
             clearTimeout(callback.timeout);
-            callback.timeout = setTimeout(() => {
-                const colors = window.getHaColors();
+            callback.timeout = setTimeout(async () => {
+                const colors = await window.getHaColors();
                 dotNetHelper.invokeMethodAsync('UpdateThemeFromJs', colors);
             }, 100);
         };
 
-        // Create an observer instance linked to the callback function
         const observer = new MutationObserver(callback);
-
-        // Start observing the target node for configured mutations
         observer.observe(targetNode, config);
         
-        // Return a cleanup function (not directly usable by Blazor, but good practice)
         return true;
     } catch (e) {
         console.warn("Could not setup HA theme observer", e);
         return false;
     }
+};
 };

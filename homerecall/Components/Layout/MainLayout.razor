@@ -61,6 +61,7 @@
         {
             var colors = await JS.InvokeAsync<HaColors>("getHaColors");
             UpdateTheme(colors);
+            StateHasChanged();
         }
         catch (Exception ex)
         {
