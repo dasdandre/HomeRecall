@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using HomeRecall;
 using HomeRecall.Components;
 using MudBlazor.Services;
+using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
@@ -34,6 +35,8 @@ builder.Services.AddDbContext<BackupContext>(options =>
 
 var app = builder.Build();
 
+var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Ingress");
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -42,15 +45,32 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-// Ingress usually handles SSL termination, so HTTP is fine internally, but standard practice:
-// app.UseHttpsRedirection(); 
+// Ingress usually handles SSL termination, so HTTP is fine internally, but UseHttpsRedirection ensures correct scheme based on forwarded headers.
+// app.UseHttpsRedirection();  // Uncomment if needed, but UseForwardedHeaders sets the scheme 
+
+// Forwarded headers for proxy
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+});
 
 // Path Base handling for Ingress
-// HA Ingress sets HTTP_X_INGRESS_PATH header. We MUST use this to set PathBase.
+// HA Ingress sets X-Forwarded-Prefix or X-Ingress-Path header. We MUST use this to set PathBase.
 app.Use(async (context, next) =>
 {
-    if (context.Request.Headers.TryGetValue("X-Ingress-Path", out var ingressPath))
+    string? ingressPath = null;
+    if (context.Request.Headers.TryGetValue("X-Forwarded-Prefix", out var prefix))
     {
+        ingressPath = prefix;
+    }
+    else if (context.Request.Headers.TryGetValue("X-Ingress-Path", out var path))
+    {
+        ingressPath = path;
+    }
+    
+    if (!string.IsNullOrEmpty(ingressPath))
+    {
+        logger.LogInformation($"Setting PathBase to {ingressPath}");
         // Ensure PathBase starts with slash
         var pathBase = new PathString(ingressPath);
         context.Request.PathBase = pathBase;
@@ -67,14 +87,6 @@ app.UseAntiforgery();
 
 
 app.MapControllers();
-
-// Ingress Setup:
-// Home Assistant Ingress sends requests to the root, but we need to handle the base path correctly if we were using it directly.
-// However, Ingress usually proxies it nicely. We might need X-Forwarded-For headers etc.
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
-});
 
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
