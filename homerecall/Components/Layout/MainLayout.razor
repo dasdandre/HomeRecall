@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @inject IJSRuntime JS
+@inject NavigationManager NavigationManager
 
 <MudThemeProvider Theme="_theme" />
 <MudPopoverProvider />
@@ -10,8 +11,8 @@
     <MudAppBar Elevation="0" Color="Color.Primary" Dense="true">
         <MudText Typo="Typo.h6" Class="ml-2">HomeRecall</MudText>
         <MudSpacer />
-        <MudButton Variant="Variant.Text" Color="Color.Inherit" Href="/" StartIcon="@Icons.Material.Filled.Home">Geräte</MudButton>
-        <MudButton Variant="Variant.Text" Color="Color.Inherit" Href="/settings" StartIcon="@Icons.Material.Filled.Settings">Einstellungen</MudButton>
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="@(() => NavigationManager.NavigateTo("/"))" StartIcon="@Icons.Material.Filled.Home">Geräte</MudButton>
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="@(() => NavigationManager.NavigateTo("settings"))" StartIcon="@Icons.Material.Filled.Settings">Einstellungen</MudButton>
     </MudAppBar>
 
     <MudMainContent>
@@ -25,13 +26,32 @@
     private MudTheme _theme = new MudTheme();
     private DotNetObjectReference<MainLayout>? _objRef;
 
+    protected override void OnInitialized()
+    {
+        // Set Default HA Colors immediately to avoid flickering
+        _theme.PaletteLight.Primary = "#03a9f4";
+        _theme.PaletteLight.AppbarBackground = "#03a9f4";
+        _theme.PaletteDark.Primary = "#03a9f4";
+        _theme.PaletteDark.AppbarBackground = "#03a9f4";
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            _objRef = DotNetObjectReference.Create(this);
-            await ApplyHomeAssistantColors();
-            await JS.InvokeVoidAsync("observeHaThemeChange", _objRef);
+            try 
+            {
+                _objRef = DotNetObjectReference.Create(this);
+                // Call JS immediately to get colors
+                await ApplyHomeAssistantColors();
+                // Then set up observer
+                await JS.InvokeVoidAsync("observeHaThemeChange", _objRef);
+            }
+            catch (Exception ex) 
+            {
+                // JS Interop might fail if connection not ready, but usually fine in OnAfterRenderAsync
+                Console.WriteLine($"Error initializing HA theme integration: {ex.Message}");
+            }
         }
     }
 
