@@ -1,6 +1,7 @@
 @using Microsoft.AspNetCore.Components.Web
-@using System
+@using Microsoft.AspNetCore.Http
 @inject NavigationManager NavigationManager
+@inject IHttpContextAccessor HttpContextAccessor
 
 <!DOCTYPE html>
 <html lang="en">
@@ -8,8 +9,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     @{
-        var baseUri = new Uri(NavigationManager.BaseUri);
-        var baseHref = baseUri.AbsolutePath;
+        var baseHref = "/";
+        if (HttpContextAccessor.HttpContext != null && 
+            HttpContextAccessor.HttpContext.Request.Headers.TryGetValue("X-Ingress-Path", out var ingressPath))
+        {
+            baseHref = ingressPath.ToString().TrimEnd('/') + "/";
+        }
+        else 
+        {
+             baseHref = NavigationManager.BaseUri;
+        }
     }
     <base href="@baseHref" />
     <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
@@ -18,10 +27,10 @@
     <title>HomeRecall</title>
 </head>
 <body>
-    <Routes />
+    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="js/ha-theme.js"></script>
-<HeadOutlet />
+<HeadOutlet @rendermode="new InteractiveServerRenderMode(prerender: false)" />
 </body>
 </html>
