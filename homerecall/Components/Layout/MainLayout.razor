@@ -41,16 +41,24 @@
         {
             try 
             {
+                Console.WriteLine("[MainLayout] OnAfterRenderAsync - firstRender=true");
                 _objRef = DotNetObjectReference.Create(this);
+                Console.WriteLine("[MainLayout] Created DotNetObjectReference");
+                
                 // Call JS immediately to get colors
+                Console.WriteLine("[MainLayout] Calling ApplyHomeAssistantColors");
                 await ApplyHomeAssistantColors();
+                
                 // Then set up observer
+                Console.WriteLine("[MainLayout] Setting up observer with observeHaThemeChange");
                 await JS.InvokeVoidAsync("observeHaThemeChange", _objRef);
+                Console.WriteLine("[MainLayout] Observer setup complete");
             }
             catch (Exception ex) 
             {
                 // JS Interop might fail if connection not ready, but usually fine in OnAfterRenderAsync
-                Console.WriteLine($"Error initializing HA theme integration: {ex.Message}");
+                Console.WriteLine($"[MainLayout] Error initializing HA theme integration: {ex.Message}");
+                Console.WriteLine($"[MainLayout] Stack trace: {ex.StackTrace}");
             }
         }
     }
@@ -59,13 +67,17 @@
     {
         try 
         {
+            Console.WriteLine("[MainLayout] ApplyHomeAssistantColors - calling getHaColors");
             var colors = await JS.InvokeAsync<HaColors>("getHaColors");
+            Console.WriteLine($"[MainLayout] Received colors: isDarkMode={colors.IsDarkMode}, primary={colors.Primary}");
             UpdateTheme(colors);
             StateHasChanged();
+            Console.WriteLine("[MainLayout] Theme updated and StateHasChanged called");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error applying HA colors: {ex.Message}");
+            Console.WriteLine($"[MainLayout] Error applying HA colors: {ex.Message}");
+            Console.WriteLine($"[MainLayout] Stack trace: {ex.StackTrace}");
         }
     }
 

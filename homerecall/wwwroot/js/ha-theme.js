@@ -1,3 +1,5 @@
+console.log("[HomeRecall Theme] Script loaded successfully");
+
 window.getHaColors = async () => {
     console.log("[HomeRecall Theme] getHaColors called");
     const defaults = {
