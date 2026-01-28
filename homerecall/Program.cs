@@ -11,6 +11,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<HomeRecall.Services.IBackupService, HomeRecall.Services.BackupService>();
 
 builder.Services.AddMudServices();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
