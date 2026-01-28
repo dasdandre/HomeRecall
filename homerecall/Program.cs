@@ -45,12 +45,14 @@ if (!app.Environment.IsDevelopment())
 // app.UseHttpsRedirection(); 
 
 // Path Base handling for Ingress
-// HA Ingress sets HTTP_X_INGRESS_PATH header. If present, we should use it as PathBase.
+// HA Ingress sets HTTP_X_INGRESS_PATH header. We MUST use this to set PathBase.
 app.Use(async (context, next) =>
 {
     if (context.Request.Headers.TryGetValue("X-Ingress-Path", out var ingressPath))
     {
-        context.Request.PathBase = new PathString(ingressPath);
+        // Ensure PathBase starts with slash
+        var pathBase = new PathString(ingressPath);
+        context.Request.PathBase = pathBase;
     }
     await next();
 });
