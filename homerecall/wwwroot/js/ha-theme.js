@@ -110,4 +110,3 @@ window.observeHaThemeChange = (dotNetHelper) => {
         return false;
     }
 };
-};
