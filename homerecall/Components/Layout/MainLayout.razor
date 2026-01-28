@@ -77,34 +77,39 @@
 
     private void UpdateTheme(HaColors colors)
     {
-         _theme.PaletteLight = new PaletteLight
-         {
-             Primary = colors.Primary,
-             Secondary = colors.Secondary,
-             AppbarBackground = colors.AppBarBackground,
-             AppbarText = colors.AppBarText,
-             Background = colors.Background,
-             Surface = colors.Surface,
-             TextPrimary = colors.TextPrimary,
-             TextSecondary = colors.TextSecondary,
-             DrawerBackground = colors.DrawerBackground,
-             DrawerText = colors.DrawerText
-         };
-
-         // Also update dark palette with same values, as HA switches CSS vars dynamically
-         _theme.PaletteDark = new PaletteDark
-         {
-              Primary = colors.Primary,
-              Secondary = colors.Secondary,
-              AppbarBackground = colors.AppBarBackground,
-              AppbarText = colors.AppBarText,
-              Background = colors.Background,
-              Surface = colors.Surface,
-              TextPrimary = colors.TextPrimary,
-              TextSecondary = colors.TextSecondary,
-              DrawerBackground = colors.DrawerBackground,
-              DrawerText = colors.DrawerText
-         };
+        // Apply colors to the appropriate palette based on dark mode detection
+        if (colors.IsDarkMode)
+        {
+            _theme.PaletteDark = new PaletteDark
+            {
+                Primary = colors.Primary,
+                Secondary = colors.Secondary,
+                AppbarBackground = colors.AppBarBackground,
+                AppbarText = colors.AppBarText,
+                Background = colors.Background,
+                Surface = colors.Surface,
+                TextPrimary = colors.TextPrimary,
+                TextSecondary = colors.TextSecondary,
+                DrawerBackground = colors.DrawerBackground,
+                DrawerText = colors.DrawerText
+            };
+        }
+        else
+        {
+            _theme.PaletteLight = new PaletteLight
+            {
+                Primary = colors.Primary,
+                Secondary = colors.Secondary,
+                AppbarBackground = colors.AppBarBackground,
+                AppbarText = colors.AppBarText,
+                Background = colors.Background,
+                Surface = colors.Surface,
+                TextPrimary = colors.TextPrimary,
+                TextSecondary = colors.TextSecondary,
+                DrawerBackground = colors.DrawerBackground,
+                DrawerText = colors.DrawerText
+            };
+        }
     }
 
     public void Dispose()
@@ -114,6 +119,7 @@
 
     public class HaColors
     {
+        public bool IsDarkMode { get; set; } = false;
         public string Primary { get; set; } = "#03a9f4";
         public string Secondary { get; set; } = "#ff9800";
         public string Background { get; set; } = "#fafafa";

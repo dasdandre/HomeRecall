@@ -23,8 +23,12 @@ window.getHaColors = () => {
             return val || null;
         };
 
+        // Detect if HA is in dark mode by checking for 'dark' class
+        const isDarkMode = targetDoc.classList.contains('dark');
+
         if (getVal('--primary-color')) {
             return {
+                isDarkMode: isDarkMode,
                 primary: getVal('--primary-color') || defaults.primary,
                 secondary: getVal('--accent-color') || defaults.secondary,
                 background: getVal('--primary-background-color') || defaults.background,
@@ -37,11 +41,11 @@ window.getHaColors = () => {
                 drawerText: getVal('--primary-text-color') || defaults.drawerText
             };
         }
-        return defaults;
+        return { isDarkMode: isDarkMode, ...defaults };
 
     } catch (e) {
         // console.warn("Could not read colors from parent window (HA), using defaults.", e);
-        return defaults;
+        return { isDarkMode: false, ...defaults };
     }
 };
 
@@ -49,15 +53,17 @@ window.observeHaThemeChange = (dotNetHelper) => {
     try {
         const targetNode = (window.parent && window.parent !== window) ? window.parent.document.documentElement : document.documentElement;
         
-        // Configuration of the observer:
+        // Configuration of the observer: watch for class changes (dark mode toggle) and style changes (color changes)
         const config = { attributes: true, attributeFilter: ['style', 'class'] };
 
         // Callback function to execute when mutations are observed
         const callback = (mutationList, observer) => {
-            // We throttle slightly or just notify
-            // Ideally we check if relevant vars changed, but simpler to just re-fetch
-            const colors = window.getHaColors();
-            dotNetHelper.invokeMethodAsync('UpdateThemeFromJs', colors);
+            // Throttle slightly to avoid excessive updates
+            clearTimeout(callback.timeout);
+            callback.timeout = setTimeout(() => {
+                const colors = window.getHaColors();
+                dotNetHelper.invokeMethodAsync('UpdateThemeFromJs', colors);
+            }, 100);
         };
 
         // Create an observer instance linked to the callback function
