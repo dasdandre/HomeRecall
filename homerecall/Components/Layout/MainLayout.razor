@@ -3,7 +3,7 @@
 @inject IJSRuntime JS
 @inject NavigationManager NavigationManager
 
-<MudThemeProvider Theme="_theme" />
+<MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -25,6 +25,7 @@
 
 @code {
     private MudTheme _theme = new MudTheme();
+    private bool _isDarkMode = false;
     private DotNetObjectReference<MainLayout>? _objRef;
 
     protected override void OnInitialized()
@@ -78,10 +79,15 @@
         StateHasChanged();
     }
 
-    private void UpdateTheme(HaColors colors)
+        private void UpdateTheme(HaColors colors)
     {
+        _isDarkMode = colors.IsDarkMode;
+
         // Apply HA colors to both palettes - MudBlazor handles mode switching
-        _theme.PaletteLight = new PaletteLight
+        // We set both to the received colors because HA sends us the *current* active colors.
+        // Whether it's dark or light in HA, that's the color set we want to use right now.
+        
+        var palette = new PaletteLight
         {
             Primary = colors.Primary,
             Secondary = colors.Secondary,
@@ -95,6 +101,10 @@
             DrawerText = colors.DrawerText
         };
 
+        // We apply the same colors to both palettes so that whichever mode MudBlazor is in,
+        // it matches what HA is currently showing.
+        _theme.PaletteLight = palette;
+        
         _theme.PaletteDark = new PaletteDark
         {
             Primary = colors.Primary,
