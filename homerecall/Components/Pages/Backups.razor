@@ -123,6 +123,6 @@ else
         // For MudBlazor, we can redirect to a controller endpoint that serves the file
         // Or inject IJSRuntime to trigger download, but Controller is easier for file serving.
         // We will keep the Controller for file download for now.
-        NavigationManager.NavigateTo($"/api/DownloadBackup/{backup.Id}", true);
+        NavigationManager.NavigateTo($"api/DownloadBackup/{backup.Id}", true);
     }
 }
