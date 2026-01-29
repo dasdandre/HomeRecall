@@ -3,6 +3,9 @@
 @inject IJSRuntime JS
 @inject NavigationManager NavigationManager
 
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<SharedResource> L
+
 <MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
@@ -10,10 +13,10 @@
 
 <MudLayout>
     <MudAppBar Elevation="0" Color="Color.Primary" Dense="true">
-        <MudText Typo="Typo.h6" Class="ml-2">HomeRecall</MudText>
+        <MudText Typo="Typo.h6" Class="ml-2">@L["App_Title"]</MudText>
         <MudSpacer />
-        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="@(() => NavigationManager.NavigateTo(""))" StartIcon="@Icons.Material.Filled.Home">Geräte</MudButton>
-        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="@(() => NavigationManager.NavigateTo("settings"))" StartIcon="@Icons.Material.Filled.Settings">Einstellungen</MudButton>
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="@(() => NavigationManager.NavigateTo(""))" StartIcon="@Icons.Material.Filled.Home">@L["Nav_Devices"]</MudButton>
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="@(() => NavigationManager.NavigateTo("settings"))" StartIcon="@Icons.Material.Filled.Settings">@L["Nav_Settings"]</MudButton>
     </MudAppBar>
 
     <MudMainContent>

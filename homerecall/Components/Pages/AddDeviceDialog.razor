@@ -1,13 +1,15 @@
 @using HomeRecall
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<SharedResource> L
 @inject BackupContext Context
 @inject ISnackbar Snackbar
 
 <MudDialog>
     <DialogContent>
         <MudForm @bind-IsValid="@success">
-            <MudTextField @bind-Value="model.Name" Label="Name" Required="true" RequiredError="Name is required!" />
-            <MudTextField @bind-Value="model.IpAddress" Label="IP Address" Required="true" RequiredError="IP is required!" />
-            <MudSelect @bind-Value="model.Type" Label="Type">
+            <MudTextField @bind-Value="model.Name" Label="@L["Devices_Table_Name"]" Required="true" RequiredError="Name is required!" />
+            <MudTextField @bind-Value="model.IpAddress" Label="@L["Devices_Table_IpAddress"]" Required="true" RequiredError="IP is required!" />
+            <MudSelect @bind-Value="model.Type" Label="@L["Devices_Table_Type"]">
                 @foreach (DeviceType type in Enum.GetValues(typeof(DeviceType)))
                 {
                     <MudSelectItem Value="@type">@type</MudSelectItem>
@@ -16,8 +18,8 @@
         </MudForm>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel">Cancel</MudButton>
-        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="@(!success)">Save</MudButton>
+        <MudButton OnClick="Cancel">@L["Common_Cancel"]</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="@(!success)">@L["Common_Save"]</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -33,7 +35,7 @@
     {
         Context.Devices.Add(model);
         await Context.SaveChangesAsync();
-        Snackbar.Add("Device added", Severity.Success);
+        Snackbar.Add(L["AddDevice_Success"], Severity.Success);
         MudDialog.Close(DialogResult.Ok(true));
     }
 }

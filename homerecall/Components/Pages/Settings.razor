@@ -1,5 +1,52 @@
 @page "/settings"
+@using Microsoft.Extensions.Localization
+@using System.Globalization
+@inject IStringLocalizer<SharedResource> L
+@inject NavigationManager NavigationManager
 
-<MudText Typo="Typo.h4">Settings</MudText>
-<MudText Class="mt-4">Configuration options will appear here.</MudText>
-<MudText>Current Backup Path: @(Environment.GetEnvironmentVariable("backup_path") ?? Path.Combine(Directory.GetCurrentDirectory(), "backups"))</MudText>
+<MudText Typo="Typo.h4">@L["Settings_Title"]</MudText>
+
+<MudPaper Class="pa-4 mt-4">
+    <MudSelect T="string" Label="@L["Settings_Language"]" Value="@_currentLanguage" ValueChanged="ChangeLanguage">
+        <MudSelectItem Value="@("auto")">@L["Settings_Language_Auto"]</MudSelectItem>
+        <MudSelectItem Value="@("en")">@L["Settings_Language_English"]</MudSelectItem>
+        <MudSelectItem Value="@("de")">@L["Settings_Language_German"]</MudSelectItem>
+    </MudSelect>
+</MudPaper>
+
+<MudText Class="mt-4">Current Backup Path: @(Environment.GetEnvironmentVariable("backup_path") ?? Path.Combine(Directory.GetCurrentDirectory(), "backups"))</MudText>
+
+@code {
+    private string _currentLanguage = "auto";
+
+    protected override void OnInitialized()
+    {
+        // Simple way to check cookie
+        // In a real server app, we'd probably want to parse the cookie properly
+        // For Blazor Server, we can't easily access cookies directly in component without JS or HttpContext accessor
+        // We will assume "auto" initially or try to infer from current thread culture if needed, but cookie management is better done via controller or JS.
+        // For simplicity, let's just default to 'auto' visually, but the actual culture is set by the middleware.
+        
+        var culture = CultureInfo.CurrentCulture.Name;
+        // If we want to reflect the current setting, we need to know if it was set via cookie or not. 
+        // For this demo, we'll just show 'auto' unless we implement cookie reading.
+        // But let's try to match the current culture if it's one of our supported ones.
+        if (culture.StartsWith("de")) _currentLanguage = "de";
+        else if (culture.StartsWith("en")) _currentLanguage = "en";
+    }
+
+    private void ChangeLanguage(string language)
+    {
+        _currentLanguage = language;
+        var uri = new Uri(NavigationManager.Uri)
+            .GetComponents(UriComponents.PathAndQuery, UriFormat.Unescaped);
+
+        var culture = language == "auto" ? "" : $"?culture={language}";
+        
+        // To persistently set the language, we should use a cookie. 
+        // Blazor Server can't set cookies directly in the response easily inside a component event.
+        // We can navigate to a controller that sets the cookie and redirects back.
+        
+        NavigationManager.NavigateTo($"api/Culture/Set?culture={language}&redirectUri={Uri.EscapeDataString(uri)}", true);
+    }
+}

@@ -8,6 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 builder.Services.AddScoped<HomeRecall.Services.IBackupService, HomeRecall.Services.BackupService>();
 
 builder.Services.AddMudServices();
@@ -66,6 +67,15 @@ app.Use(async (context, next) =>
 
 // Ensure Static Files are served correctly even behind Ingress paths
 app.UseStaticFiles();
+
+var supportedCultures = new[] { "en", "de" };
+var localizationOptions = new RequestLocalizationOptions()
+    .SetDefaultCulture("en")
+    .AddSupportedCultures(supportedCultures)
+    .AddSupportedUICultures(supportedCultures);
+
+app.UseRequestLocalization(localizationOptions);
+
 app.UseRouting(); 
 app.UseAntiforgery();
 app.MapControllers();

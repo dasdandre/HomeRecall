@@ -2,13 +2,15 @@
 @using HomeRecall
 @using HomeRecall.Services
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<SharedResource> L
 @inject BackupContext Context
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
-<MudText Typo="Typo.h4" Class="mb-4">Backups für @(_device?.Name ?? "Laden...")</MudText>
+<MudText Typo="Typo.h4" Class="mb-4">@String.Format(L["Backups_Title"], _device?.Name ?? "Laden...")</MudText>
 
 <div class="d-flex justify-space-between align-center mb-4">
     <MudBreadcrumbs Items="_breadcrumbs" Class="pa-0"></MudBreadcrumbs>
@@ -19,7 +21,7 @@
                    StartIcon="@Icons.Material.Filled.Delete"
                    OnClick="DeleteSelectedBackups"
                    Class="ml-4">
-            Ausgewählte löschen (@_selectedItems.Count)
+            @L["Devices_DeleteSelected"] (@_selectedItems.Count)
         </MudButton>
     }
 </div>
@@ -38,35 +40,35 @@ else
               Loading="@_loading"
               LoadingProgressColor="Color.Info">
         <HeaderContent>
-            <MudTh>Datum</MudTh>
-            <MudTh>Prüfsumme (SHA1)</MudTh>
-            <MudTh>Notiz</MudTh>
-            <MudTh>Gesperrt</MudTh>
-            <MudTh Style="text-align:right">Aktionen</MudTh>
+            <MudTh>@L["Backups_Date"]</MudTh>
+            <MudTh>@L["Backups_Checksum"]</MudTh>
+            <MudTh>@L["Backups_Note"]</MudTh>
+            <MudTh>@L["Backups_Locked"]</MudTh>
+            <MudTh Style="text-align:right">@L["Devices_Table_Actions"]</MudTh>
         </HeaderContent>
         <RowTemplate>
-            <MudTd DataLabel="Datum">@context.CreatedAt.ToLocalTime().ToString("g")</MudTd>
-            <MudTd DataLabel="Prüfsumme">
+            <MudTd DataLabel="@L["Backups_Date"]">@context.CreatedAt.ToLocalTime().ToString("g")</MudTd>
+            <MudTd DataLabel="@L["Backups_Checksum"]">
                 <code style="font-size: 0.8rem">@context.Sha1Checksum.Substring(0, Math.Min(8, context.Sha1Checksum.Length))</code>
             </MudTd>
-            <MudTd DataLabel="Notiz">
+            <MudTd DataLabel="@L["Backups_Note"]">
                  <MudTextField Value="@context.Note"
                                ValueChanged="@((string s) => UpdateNote(context, s))"
-                               Placeholder="Notiz hinzufügen..."
+                               Placeholder="@(L["Backups_Note"] + "...")"
                                Margin="Margin.Dense"
                                Variant="Variant.Text"/>
             </MudTd>
-            <MudTd DataLabel="Gesperrt">
+            <MudTd DataLabel="@L["Backups_Locked"]">
                 <MudToggleIconButton Toggled="@context.IsLocked"
                                      ToggledChanged="@((bool b) => ToggleLock(context))"
                                      Icon="@Icons.Material.Outlined.LockOpen"
                                      Color="@Color.Default"
                                      ToggledIcon="@Icons.Material.Filled.Lock"
                                      ToggledColor="@Color.Warning"
-                                     Title="Sperren"
-                                     ToggledTitle="Entsperren" />
+                                     Title="@L["Backups_Locked"]"
+                                     ToggledTitle="@L["Backups_Locked"]" />
             </MudTd>
-            <MudTd DataLabel="Aktionen" Style="text-align:right">
+            <MudTd DataLabel="@L["Devices_Table_Actions"]" Style="text-align:right">
                 <MudIconButton Icon="@Icons.Material.Filled.Download"
                                Color="Color.Primary"
                                Size="Size.Small"
@@ -91,14 +93,14 @@ else
     private HashSet<Backup> _selectedItems = new();
     private List<BreadcrumbItem> _breadcrumbs = new List<BreadcrumbItem>();
 
-    protected override async Task OnInitializedAsync()
+        protected override async Task OnInitializedAsync()
     {
             await LoadData();
 
         _breadcrumbs = new List<BreadcrumbItem>
         {
-            new BreadcrumbItem("Geräte", href: "/"),
-            new BreadcrumbItem("Backups", href: null, disabled: true)
+            new BreadcrumbItem(L["Nav_Devices"], href: "/"),
+            new BreadcrumbItem(L["Common_Backups"], href: null, disabled: true)
         };
     }
 
@@ -123,20 +125,20 @@ else
         await Context.SaveChangesAsync();
     }
 
-    private async Task DeleteBackup(Backup backup)
+        private async Task DeleteBackup(Backup backup)
     {
         if (backup.IsLocked) return;
 
         bool? result = await DialogService.ShowMessageBox(
-            "Backup löschen",
-            "Sind Sie sicher, dass Sie dieses Backup löschen möchten?",
-            yesText:"Löschen", cancelText:"Abbrechen");
+            L["Backups_Delete_Confirm_Title"],
+            L["Backups_Delete_Confirm_Message"],
+            yesText:L["Common_Delete"], cancelText:L["Common_Cancel"]);
 
         if (result == true)
         {
             await ExecuteDelete(backup);
             await LoadData();
-            Snackbar.Add("Backup gelöscht", Severity.Success);
+            Snackbar.Add(L["Backups_Deleted_Success"], Severity.Success);
         }
     }
 
@@ -145,14 +147,14 @@ else
         var deletableItems = _selectedItems.Where(b => !b.IsLocked).ToList();
         if (!deletableItems.Any())
         {
-            Snackbar.Add("Keine der ausgewählten Backups können gelöscht werden (alle gesperrt).", Severity.Warning);
+            Snackbar.Add(L["Backups_DeleteSelected_Warning"], Severity.Warning);
             return;
         }
 
         bool? result = await DialogService.ShowMessageBox(
-            "Backups löschen",
-            $"Möchten Sie {deletableItems.Count} Backups wirklich löschen? Gesperrte Backups werden übersprungen.",
-            yesText:"Löschen", cancelText:"Abbrechen");
+            L["Backups_DeleteSelected_Confirm_Title"],
+            String.Format(L["Backups_DeleteSelected_Confirm_Message"], deletableItems.Count),
+            yesText:L["Common_Delete"], cancelText:L["Common_Cancel"]);
 
         if (result == true)
         {
@@ -162,7 +164,7 @@ else
             }
             _selectedItems.Clear();
             await LoadData();
-            Snackbar.Add($"{deletableItems.Count} Backups gelöscht", Severity.Success);
+            Snackbar.Add(String.Format(L["Backups_DeletedMultiple_Success"], deletableItems.Count), Severity.Success);
         }
     }
 

@@ -1,6 +1,8 @@
 @page "/"
 @using HomeRecall.Services
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<SharedResource> L
 @inject BackupContext Context
 @inject IBackupService BackupService
 @inject ISnackbar Snackbar
@@ -9,27 +11,27 @@
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
     <div class="d-flex justify-space-between align-center mb-6">
-        <MudText Typo="Typo.h4">Geräte</MudText>
+        <MudText Typo="Typo.h4">@L["Devices_Title"]</MudText>
         <MudStack Row="true" Spacing="2">
             @if (_selectedItems.Any())
             {
-                <MudButton Variant="Variant.Filled" 
+                                <MudButton Variant="Variant.Filled" 
                            Color="Color.Primary" 
                            StartIcon="@Icons.Material.Filled.Backup"
                            Disabled="@_isMassBackingUp"
                            OnClick="BackupSelected">
-                    @( _isMassBackingUp ? "Backing up..." : $"Backup Selected ({_selectedItems.Count})")
+                    @( _isMassBackingUp ? L["Devices_MassBackup_Progress"] : $"{L["Devices_BackupSelected"]} ({_selectedItems.Count})")
                 </MudButton>
                 <MudButton Variant="Variant.Outlined" 
                            Color="Color.Error" 
                            StartIcon="@Icons.Material.Filled.Delete"
                            Disabled="@_isMassBackingUp"
                            OnClick="DeleteSelected">
-                    Delete Selected (@_selectedItems.Count)
+                    @L["Devices_DeleteSelected"] (@_selectedItems.Count)
                 </MudButton>
             }
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddDeviceDialog" StartIcon="@Icons.Material.Filled.Add">
-                Neues Gerät
+                @L["Devices_AddDevice"]
             </MudButton>
         </MudStack>
     </div>
@@ -40,29 +42,29 @@
     }
     else if (!_devices.Any())
     {
-        <MudAlert Severity="Severity.Info" Variant="Variant.Filled">Keine Geräte vorhanden. Fügen Sie eines hinzu!</MudAlert>
+        <MudAlert Severity="Severity.Info" Variant="Variant.Filled">@L["Devices_NoDevices"]</MudAlert>
     }
     else
     {
         <MudTable Items="@_devices" MultiSelection="true" @bind-SelectedItems="_selectedItems" Hover="true" Elevation="3" Breakpoint="Breakpoint.Sm">
             <HeaderContent>
-                <MudTh>Name</MudTh>
-                <MudTh>IP Adresse</MudTh>
-                <MudTh>Typ</MudTh>
-                <MudTh>Letztes Backup</MudTh>
-                <MudTh Style="text-align:right">Aktionen</MudTh>
+                <MudTh>@L["Devices_Table_Name"]</MudTh>
+                <MudTh>@L["Devices_Table_IpAddress"]</MudTh>
+                <MudTh>@L["Devices_Table_Type"]</MudTh>
+                <MudTh>@L["Devices_Table_LastBackup"]</MudTh>
+                <MudTh Style="text-align:right">@L["Devices_Table_Actions"]</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd DataLabel="Name">
+                <MudTd DataLabel="@L["Devices_Table_Name"]">
                     <MudText Typo="Typo.body1" Style="font-weight: 500;">@context.Name</MudText>
                 </MudTd>
-                <MudTd DataLabel="IP Adresse">
+                <MudTd DataLabel="@L["Devices_Table_IpAddress"]">
                     <MudLink Href="@($"http://{context.IpAddress}")" Target="_blank" Underline="Underline.Hover">@context.IpAddress</MudLink>
                 </MudTd>
-                <MudTd DataLabel="Typ">
+                <MudTd DataLabel="@L["Devices_Table_Type"]">
                     <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@context.Type</MudChip>
                 </MudTd>
-                <MudTd DataLabel="Letztes Backup">
+                <MudTd DataLabel="@L["Devices_Table_LastBackup"]">
                     @if (context.LastBackup.HasValue)
                     {
                         <div class="d-flex align-center gap-1">
@@ -75,9 +77,9 @@
                         <MudText Typo="Typo.body2" Color="Color.Default">-</MudText>
                     }
                 </MudTd>
-                <MudTd DataLabel="Aktionen" Style="text-align:right">
+                <MudTd DataLabel="@L["Devices_Table_Actions"]" Style="text-align:right">
                     <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
-                         <MudButton Variant="Variant.Outlined" 
+                                                  <MudButton Variant="Variant.Outlined" 
                                     Color="Color.Primary" 
                                     Size="Size.Small" 
                                     StartIcon="@(_isBackingUp.Contains(context.Id) ? null : Icons.Material.Filled.Backup)"
@@ -86,11 +88,11 @@
                              @if (_isBackingUp.Contains(context.Id))
                              {
                                  <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
-                                 <MudText Class="ms-2">Backup...</MudText>
+                                 <MudText Class="ms-2">@L["Common_BackupInProgress"]</MudText>
                              }
                              else
                              {
-                                 <MudText>Backup</MudText>
+                                 <MudText>@L["Common_Backup"]</MudText>
                              }
                          </MudButton>
 
@@ -99,12 +101,12 @@
                                    Size="Size.Small"
                                    StartIcon="@Icons.Material.Filled.History"
                                    OnClick="@(() => NavigateToBackups(context.Id))">
-                            Backups (@context.Backups.Count)
+                            @L["Common_Backups"] (@context.Backups.Count)
                         </MudButton>
 
                         <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                             <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => RenameDevice(context))">Umbenennen</MudMenuItem>
-                             <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => DeleteDevice(context))" IconColor="Color.Error">Löschen</MudMenuItem>
+                             <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => RenameDevice(context))">@L["Common_Rename"]</MudMenuItem>
+                             <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => DeleteDevice(context))" IconColor="Color.Error">@L["Common_Delete"]</MudMenuItem>
                         </MudMenu>
                     </MudStack>
                 </MudTd>
@@ -137,10 +139,10 @@
         NavigationManager.NavigateTo($"backups/{deviceId}");
     }
 
-    private async Task OpenAddDeviceDialog()
+        private async Task OpenAddDeviceDialog()
     {
         var parameters = new DialogParameters();
-        var dialog = await DialogService.ShowAsync<AddDeviceDialog>("Gerät hinzufügen", parameters);
+        var dialog = await DialogService.ShowAsync<AddDeviceDialog>(L["AddDevice_Title"], parameters);
         var result = await dialog.Result;
         
         if (result != null && !result.Canceled)
@@ -157,7 +159,7 @@
             { nameof(RenameDeviceDialog.CurrentName), device.Name }
         };
 
-        var dialog = await DialogService.ShowAsync<RenameDeviceDialog>("Gerät umbenennen", parameters);
+        var dialog = await DialogService.ShowAsync<RenameDeviceDialog>(L["RenameDevice_Title"], parameters);
         var result = await dialog.Result;
 
         if (result != null && !result.Canceled)
@@ -173,13 +175,13 @@
         _isBackingUp.Add(device.Id);
         StateHasChanged();
 
-        try
+                try
         {
             await BackupService.PerformBackupAsync(device.Id);
         }
         catch(Exception ex)
         {
-            Snackbar.Add($"Fehler beim Backup von {device.Name}: {ex.Message}", Severity.Error);
+            Snackbar.Add(String.Format(L["Devices_Backup_Error"], device.Name, ex.Message), Severity.Error);
         }
         finally
         {
@@ -203,7 +205,7 @@
             }
             
             await LoadDevices();
-            Snackbar.Add($"{itemsToBackup.Count} Backups abgeschlossen.", Severity.Success);
+            Snackbar.Add(String.Format(L["Devices_MassBackup_Success"], itemsToBackup.Count), Severity.Success);
         }
         finally
         {
@@ -219,16 +221,16 @@
         if (hasLockedBackups)
         {
             await DialogService.ShowMessageBox(
-                "Löschen nicht möglich",
-                $"Das Gerät '{device.Name}' hat gesperrte Backups. Bitte entsperren oder löschen Sie diese zuerst, bevor Sie das Gerät entfernen.",
-                "Verstanden");
+                L["Devices_Delete_LockedBackups_Title"],
+                String.Format(L["Devices_Delete_LockedBackups_Message"], device.Name),
+                L["Common_Understand"]);
             return;
         }
 
         bool? result = await DialogService.ShowMessageBox(
-            "Gerät löschen",
-            $"Sind Sie sicher, dass Sie '{device.Name}' löschen möchten? Alle zugehörigen Backups werden ebenfalls gelöscht.",
-            yesText: "Löschen", cancelText: "Abbrechen");
+            L["Devices_Delete_Confirm_Title"],
+            String.Format(L["Devices_Delete_Confirm_Message"], device.Name),
+            yesText: L["Common_Delete"], cancelText: L["Common_Cancel"]);
 
         if (result == true)
         {
@@ -240,7 +242,7 @@
             Context.Devices.Remove(device);
             await Context.SaveChangesAsync();
             await LoadDevices();
-            Snackbar.Add("Gerät und zugehörige Backups gelöscht", Severity.Success);
+            Snackbar.Add(L["Devices_Delete_Success"], Severity.Success);
         }
     }
 
@@ -253,16 +255,16 @@
         {
             var names = string.Join(", ", devicesWithLockedBackups.Select(d => d.Name));
             await DialogService.ShowMessageBox(
-                "Löschen nicht möglich",
-                $"Einige Geräte haben gesperrte Backups: {names}. Bitte bereinigen Sie diese zuerst.",
-                "Verstanden");
+                L["Devices_Delete_LockedBackups_Title"],
+                String.Format(L["Devices_DeleteSelected_LockedBackups_Message"], names),
+                L["Common_Understand"]);
             return;
         }
 
         bool? result = await DialogService.ShowMessageBox(
-            "Ausgewählte Geräte löschen",
-            $"Sind Sie sicher, dass Sie {_selectedItems.Count} Geräte und alle deren Backups löschen möchten?",
-            yesText: "Löschen", cancelText: "Abbrechen");
+            L["Devices_DeleteSelected_Confirm_Title"],
+            String.Format(L["Devices_DeleteSelected_Confirm_Message"], _selectedItems.Count),
+            yesText: L["Common_Delete"], cancelText: L["Common_Cancel"]);
 
         if (result == true)
         {
@@ -278,7 +280,7 @@
             await Context.SaveChangesAsync();
             _selectedItems.Clear();
             await LoadDevices();
-            Snackbar.Add("Geräte gelöscht", Severity.Success);
+            Snackbar.Add(L["Devices_DeleteSelected_Success"], Severity.Success);
         }
     }
 

@@ -1,16 +1,18 @@
 @using HomeRecall
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<SharedResource> L
 @inject BackupContext Context
 @inject ISnackbar Snackbar
 
 <MudDialog>
     <DialogContent>
         <MudForm @bind-IsValid="@success">
-            <MudTextField @bind-Value="NewName" Label="Device Name" Required="true" RequiredError="Name cannot be empty." />
+            <MudTextField @bind-Value="NewName" Label="@L["Devices_Table_Name"]" Required="true" RequiredError="Name cannot be empty." />
         </MudForm>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel">Cancel</MudButton>
-        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="@(!success)">Rename</MudButton>
+        <MudButton OnClick="Cancel">@L["Common_Cancel"]</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="@(!success)">@L["Common_Rename"]</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -38,12 +40,12 @@
         {
             device.Name = NewName;
             await Context.SaveChangesAsync();
-            Snackbar.Add("Device renamed", Severity.Success);
+            Snackbar.Add(L["RenameDevice_Success"], Severity.Success);
             MudDialog.Close(DialogResult.Ok(true));
         }
         else
         {
-            Snackbar.Add("Device not found", Severity.Error);
+            Snackbar.Add(L["RenameDevice_NotFound"], Severity.Error);
             MudDialog.Cancel();
         }
     }

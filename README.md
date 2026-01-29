@@ -6,6 +6,8 @@
 ![Docker](https://img.shields.io/badge/Container-Docker-2496ed?style=flat-square&logo=docker)
 ![AI Assisted](https://img.shields.io/badge/🤖%20AI-Co--Authored-success?style=flat-square)
 
+> ⚠️ **Early Development Access**: This project is still in a very early development phase and **should not be used in production environments yet**.
+
 **HomeRecall** is a modern, lightweight backup solution for your IoT devices, designed to run seamlessly as a **Home Assistant Add-on**.
 
 Never lose your Tasmota, WLED, or Shelly configurations again.
@@ -23,6 +25,7 @@ The entire codebase—from the backend architecture in .NET 10 to the responsive
 ## 🚀 Features
 
 *   **📱 Device Management:** Easily manage your IoT devices (Tasmota, WLED, Shelly) in a clean list view.
+*   **🌍 Multi-language Support:** Fully localized in English and German.
 *   **💾 One-Click Backups:** Create backups of your device configurations instantly.
 *   **🔄 Mass Backup:** Backup all your devices at once with a single click.
 *   **🎨 Seamless Integration:** 

@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Devices_Title" xml:space="preserve">
+    <value>Geräte</value>
+  </data>
+  <data name="Devices_AddDevice" xml:space="preserve">
+    <value>Neues Gerät</value>
+  </data>
+  <data name="Devices_BackupSelected" xml:space="preserve">
+    <value>Backup Ausgewählte</value>
+  </data>
+  <data name="Devices_DeleteSelected" xml:space="preserve">
+    <value>Ausgewählte löschen</value>
+  </data>
+  <data name="Devices_NoDevices" xml:space="preserve">
+    <value>Keine Geräte vorhanden. Fügen Sie eines hinzu!</value>
+  </data>
+  <data name="Devices_Table_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Devices_Table_IpAddress" xml:space="preserve">
+    <value>IP Adresse</value>
+  </data>
+  <data name="Devices_Table_Type" xml:space="preserve">
+    <value>Typ</value>
+  </data>
+  <data name="Devices_Table_LastBackup" xml:space="preserve">
+    <value>Letztes Backup</value>
+  </data>
+  <data name="Devices_Table_Actions" xml:space="preserve">
+    <value>Aktionen</value>
+  </data>
+  <data name="Common_Backup" xml:space="preserve">
+    <value>Backup</value>
+  </data>
+  <data name="Common_Backups" xml:space="preserve">
+    <value>Backups</value>
+  </data>
+  <data name="Common_Rename" xml:space="preserve">
+    <value>Umbenennen</value>
+  </data>
+  <data name="Common_Delete" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>Speichern</value>
+  </data>
+  <data name="AddDevice_Title" xml:space="preserve">
+    <value>Gerät hinzufügen</value>
+  </data>
+  <data name="AddDevice_Success" xml:space="preserve">
+    <value>Gerät hinzugefügt</value>
+  </data>
+  <data name="RenameDevice_Title" xml:space="preserve">
+    <value>Gerät umbenennen</value>
+  </data>
+  <data name="RenameDevice_Success" xml:space="preserve">
+    <value>Gerät umbenannt</value>
+  </data>
+  <data name="RenameDevice_NotFound" xml:space="preserve">
+    <value>Gerät nicht gefunden</value>
+  </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>Einstellungen</value>
+  </data>
+  <data name="Settings_Language" xml:space="preserve">
+    <value>Sprache</value>
+  </data>
+  <data name="Settings_Language_Auto" xml:space="preserve">
+    <value>Automatisch</value>
+  </data>
+  <data name="Settings_Language_German" xml:space="preserve">
+    <value>Deutsch</value>
+  </data>
+  <data name="Settings_Language_English" xml:space="preserve">
+    <value>Englisch</value>
+  </data>
+  <data name="Backups_Title" xml:space="preserve">
+    <value>Backups für {0}</value>
+  </data>
+  <data name="Backups_Date" xml:space="preserve">
+    <value>Datum</value>
+  </data>
+  <data name="Backups_Checksum" xml:space="preserve">
+    <value>Prüfsumme (SHA1)</value>
+  </data>
+  <data name="Backups_Note" xml:space="preserve">
+    <value>Notiz</value>
+  </data>
+  <data name="Backups_Locked" xml:space="preserve">
+    <value>Gesperrt</value>
+  </data>
+  <data name="Backups_DeleteSelected_Warning" xml:space="preserve">
+    <value>Keine Backups können gelöscht werden (alle gesperrt).</value>
+  </data>
+  <data name="Backups_DeleteSelected_Confirm_Title" xml:space="preserve">
+    <value>Backups löschen</value>
+  </data>
+  <data name="Backups_DeleteSelected_Confirm_Message" xml:space="preserve">
+    <value>Möchten Sie {0} Backups wirklich löschen? Gesperrte Backups werden übersprungen.</value>
+  </data>
+  <data name="Backups_Delete_Confirm_Title" xml:space="preserve">
+    <value>Backup löschen</value>
+  </data>
+  <data name="Backups_Delete_Confirm_Message" xml:space="preserve">
+    <value>Sind Sie sicher, dass Sie dieses Backup löschen möchten?</value>
+  </data>
+  <data name="Backups_Deleted_Success" xml:space="preserve">
+    <value>Backup gelöscht</value>
+  </data>
+  <data name="Backups_DeletedMultiple_Success" xml:space="preserve">
+    <value>{0} Backups gelöscht</value>
+  </data>
+  <data name="App_Title" xml:space="preserve">
+    <value>HomeRecall</value>
+  </data>
+  <data name="Nav_Devices" xml:space="preserve">
+    <value>Geräte</value>
+  </data>
+  <data name="Nav_Settings" xml:space="preserve">
+    <value>Einstellungen</value>
+  </data>
+  <data name="Devices_MassBackup_Progress" xml:space="preserve">
+    <value>Erstelle Backups...</value>
+  </data>
+  <data name="Devices_Delete_Confirm_Title" xml:space="preserve">
+    <value>Gerät löschen</value>
+  </data>
+  <data name="Devices_Delete_Confirm_Message" xml:space="preserve">
+    <value>Sind Sie sicher, dass Sie '{0}' löschen möchten? Alle zugehörigen Backups werden ebenfalls gelöscht.</value>
+  </data>
+  <data name="Devices_DeleteSelected_Confirm_Title" xml:space="preserve">
+    <value>Ausgewählte Geräte löschen</value>
+  </data>
+  <data name="Devices_DeleteSelected_Confirm_Message" xml:space="preserve">
+    <value>Sind Sie sicher, dass Sie {0} Geräte und alle deren Backups löschen möchten?</value>
+  </data>
+  <data name="Devices_Delete_LockedBackups_Title" xml:space="preserve">
+    <value>Löschen nicht möglich</value>
+  </data>
+  <data name="Devices_Delete_LockedBackups_Message" xml:space="preserve">
+    <value>Das Gerät '{0}' hat gesperrte Backups. Bitte entsperren oder löschen Sie diese zuerst, bevor Sie das Gerät entfernen.</value>
+  </data>
+  <data name="Devices_DeleteSelected_LockedBackups_Message" xml:space="preserve">
+    <value>Einige Geräte haben gesperrte Backups: {0}. Bitte bereinigen Sie diese zuerst.</value>
+  </data>
+  <data name="Devices_Delete_Success" xml:space="preserve">
+    <value>Gerät und zugehörige Backups gelöscht</value>
+  </data>
+  <data name="Devices_DeleteSelected_Success" xml:space="preserve">
+    <value>Geräte gelöscht</value>
+  </data>
+  <data name="Devices_Backup_Error" xml:space="preserve">
+    <value>Fehler beim Backup von {0}: {1}</value>
+  </data>
+  <data name="Devices_MassBackup_Success" xml:space="preserve">
+    <value>{0} Backups abgeschlossen.</value>
+  </data>
+  <data name="Backups_Loading" xml:space="preserve">
+    <value>Laden...</value>
+  </data>
+  <data name="Backups_Note_Placeholder" xml:space="preserve">
+    <value>Notiz hinzufügen...</value>
+  </data>
+  <data name="Common_Understand" xml:space="preserve">
+    <value>Verstanden</value>
+  </data>
+  <data name="Common_BackupInProgress" xml:space="preserve">
+    <value>Backup...</value>
+  </data>
+  <data name="Common_Yes" xml:space="preserve">
+    <value>Ja</value>
+  </data>
+  <data name="Common_No" xml:space="preserve">
+    <value>Nein</value>
+  </data>
+</root>

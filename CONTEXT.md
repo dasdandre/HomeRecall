@@ -2,6 +2,7 @@
 
 ## Overview
 HomeRecall is a backup solution for IoT devices (Tasmota, WLED, Shelly) built as an **ASP.NET Core Blazor Server** application. It is designed to run primarily as a **Home Assistant Add-on** behind Ingress, but also supports local execution.
+It features a multi-language UI (German/English) and seamless Home Assistant integration.
 
 ## Tech Stack
 - **Framework:** .NET 10 (Stable/LTS)
@@ -9,6 +10,7 @@ HomeRecall is a backup solution for IoT devices (Tasmota, WLED, Shelly) built as
 - **Architecture:** Blazor Server (Interactive Server)
 - **Database:** SQLite (EF Core)
 - **Infrastructure:** Docker (Alpine based), S6 Overlay (via HA Base Image)
+- **Localization:** ASP.NET Core Localization (IStringLocalizer) with Cookie Culture Provider
 
 ## Critical Architectural Decisions & Fixes
 
@@ -27,12 +29,21 @@ This was the most complex part of the setup. The app runs behind a dynamic path 
 *   **Mechanism:** `wwwroot/js/ha-theme.js` accesses `window.parent` (the HA frontend) to read CSS variables (e.g., `--primary-color`).
 *   **Reactivity:** A `MutationObserver` in JS detects Dark Mode switches in HA and notifies `MainLayout.razor` via JS Interop to update the `MudTheme` dynamically.
 
-### 3. Blazor Interactivity
+### 3. Localization (Multi-language Support)
+*   **Strategy:** Standard ASP.NET Core `IStringLocalizer`.
+*   **Resources:** `SharedResource.en.resx` (English) and `SharedResource.de.resx` (German) located in `homerecall/Resources`.
+*   **Switching:** 
+    *   A `CultureController` handles setting the `AspNetCore.Culture` cookie.
+    *   Users can select language in Settings (Auto/EN/DE).
+    *   "Auto" mode respects the browser's language settings.
+*   **Constraint:** German translation avoids English technical terms (except "Backup" and "Download").
+
+### 4. Blazor Interactivity
 *   **Mode:** `InteractiveServerRenderMode(prerender: false)`.
 *   **Reason:** Prerendering caused issues with the Router resolving parameters and with timing of JS Interop for the theming.
 *   **Configuration:** Applied in `App.razor` to `<Routes>` and `<HeadOutlet>`.
 
-### 4. Docker & S6 Overlay
+### 5. Docker & S6 Overlay
 *   **Base Image:** Standard Microsoft SDK for build, but HA Base Image (Alpine) for runtime.
 *   **Runtime:** We install ASP.NET Core Runtime manually via `dotnet-install.sh` in the Dockerfile because Alpine repos often lag behind.
 *   **Startup:** We use a `run.sh` script (`CMD ["/run.sh"]`) to be compatible with the S6 Overlay init system used by Home Assistant. Direct `dotnet` entrypoints fail with PID 1 errors.
@@ -40,6 +51,7 @@ This was the most complex part of the setup. The app runs behind a dynamic path 
 ## Directory Structure
 *   `homerecall/Components/Pages`: Blazor pages (Home, Backups).
 *   `homerecall/Components/Layout`: MainLayout (AppBar, Theming Logic).
+*   `homerecall/Resources`: Resx files for translations.
 *   `homerecall/wwwroot`: Static assets (JS for theming, custom CSS).
 *   `homerecall/data`: SQLite DB location (mapped to `/config` or `./data`).
 *   `homerecall/backups`: Backup storage (mapped to `/backup` or `./backups`).
@@ -62,10 +74,18 @@ app.Use(async (context, next) => {
 // 2. Static Files (After PathBase!)
 app.UseStaticFiles();
 
-// 3. Routing & Antiforgery
+// 3. Localization
+var supportedCultures = new[] { "en", "de" };
+var localizationOptions = new RequestLocalizationOptions()
+    .SetDefaultCulture("en")
+    .AddSupportedCultures(supportedCultures)
+    .AddSupportedUICultures(supportedCultures);
+app.UseRequestLocalization(localizationOptions);
+
+// 4. Routing & Antiforgery
 app.UseRouting();
 app.UseAntiforgery();
-app.MapControllers(); // For Download Controller
+app.MapControllers(); // For Download Controller and Culture Controller
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 ```
 
