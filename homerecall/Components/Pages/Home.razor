@@ -213,9 +213,51 @@
         }
     }
 
+    private async Task DeleteDevice(Device device)
+    {
+        bool hasLockedBackups = device.Backups.Any(b => b.IsLocked);
+        if (hasLockedBackups)
+        {
+            await DialogService.ShowMessageBox(
+                "Löschen nicht möglich",
+                $"Das Gerät '{device.Name}' hat gesperrte Backups. Bitte entsperren oder löschen Sie diese zuerst, bevor Sie das Gerät entfernen.",
+                "Verstanden");
+            return;
+        }
+
+        bool? result = await DialogService.ShowMessageBox(
+            "Gerät löschen",
+            $"Sind Sie sicher, dass Sie '{device.Name}' löschen möchten? Alle zugehörigen Backups werden ebenfalls gelöscht.",
+            yesText: "Löschen", cancelText: "Abbrechen");
+
+        if (result == true)
+        {
+            foreach (var backup in device.Backups)
+            {
+                await ExecuteFileCleanup(backup);
+            }
+
+            Context.Devices.Remove(device);
+            await Context.SaveChangesAsync();
+            await LoadDevices();
+            Snackbar.Add("Gerät und zugehörige Backups gelöscht", Severity.Success);
+        }
+    }
+
     private async Task DeleteSelected()
     {
         if (!_selectedItems.Any()) return;
+
+        var devicesWithLockedBackups = _selectedItems.Where(d => d.Backups.Any(b => b.IsLocked)).ToList();
+        if (devicesWithLockedBackups.Any())
+        {
+            var names = string.Join(", ", devicesWithLockedBackups.Select(d => d.Name));
+            await DialogService.ShowMessageBox(
+                "Löschen nicht möglich",
+                $"Einige Geräte haben gesperrte Backups: {names}. Bitte bereinigen Sie diese zuerst.",
+                "Verstanden");
+            return;
+        }
 
         bool? result = await DialogService.ShowMessageBox(
             "Ausgewählte Geräte löschen",
@@ -224,6 +266,14 @@
 
         if (result == true)
         {
+            foreach (var device in _selectedItems)
+            {
+                foreach (var backup in device.Backups)
+                {
+                    await ExecuteFileCleanup(backup);
+                }
+            }
+
             Context.Devices.RemoveRange(_selectedItems);
             await Context.SaveChangesAsync();
             _selectedItems.Clear();
@@ -232,20 +282,27 @@
         }
     }
 
-    private async Task DeleteDevice(Device device)
+    private async Task ExecuteFileCleanup(Backup backup)
     {
-         bool? result = await DialogService.ShowMessageBox(
-            "Gerät löschen",
-            $"Sind Sie sicher, dass Sie '{device.Name}' löschen möchten? Alle zugehörigen Backups werden ebenfalls gelöscht.",
-            yesText:"Löschen", cancelText:"Abbrechen");
+        try
+        {
+            var otherBackupsUsingFile = await Context.Backups
+                .AnyAsync(b => b.StoragePath == backup.StoragePath && b.Id != backup.Id);
 
-         if (result == true)
-         {
-             Context.Devices.Remove(device);
-             await Context.SaveChangesAsync();
-             await LoadDevices();
-             Snackbar.Add("Gerät gelöscht", Severity.Success);
-         }
+            if (!otherBackupsUsingFile)
+            {
+                var backupDirectory = Environment.GetEnvironmentVariable("backup_path") ?? Path.Combine(Directory.GetCurrentDirectory(), "backups");
+                var path = Path.Combine(backupDirectory, backup.StoragePath);
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Could not delete file {backup.StoragePath}: {ex.Message}");
+        }
     }
 }
 
