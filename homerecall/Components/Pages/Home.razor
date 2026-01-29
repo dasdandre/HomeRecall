@@ -10,9 +10,28 @@
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
     <div class="d-flex justify-space-between align-center mb-6">
         <MudText Typo="Typo.h4">Geräte</MudText>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddDeviceDialog" StartIcon="@Icons.Material.Filled.Add">
-            Neues Gerät
-        </MudButton>
+        <MudStack Row="true" Spacing="2">
+            @if (_selectedItems.Any())
+            {
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           StartIcon="@Icons.Material.Filled.Backup"
+                           Disabled="@_isMassBackingUp"
+                           OnClick="BackupSelected">
+                    @( _isMassBackingUp ? "Backing up..." : $"Backup Selected ({_selectedItems.Count})")
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" 
+                           Color="Color.Error" 
+                           StartIcon="@Icons.Material.Filled.Delete"
+                           Disabled="@_isMassBackingUp"
+                           OnClick="DeleteSelected">
+                    Delete Selected (@_selectedItems.Count)
+                </MudButton>
+            }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddDeviceDialog" StartIcon="@Icons.Material.Filled.Add">
+                Neues Gerät
+            </MudButton>
+        </MudStack>
     </div>
 
     @if (_loading)
@@ -25,7 +44,7 @@
     }
     else
     {
-        <MudTable Items="@_devices" Hover="true" Elevation="3" Breakpoint="Breakpoint.Sm">
+        <MudTable Items="@_devices" MultiSelection="true" @bind-SelectedItems="_selectedItems" Hover="true" Elevation="3" Breakpoint="Breakpoint.Sm">
             <HeaderContent>
                 <MudTh>Name</MudTh>
                 <MudTh>IP Adresse</MudTh>
@@ -96,13 +115,15 @@
 
 @code {
     private List<Device> _devices = new();
+    private HashSet<Device> _selectedItems = new();
     private bool _loading = true;
     private HashSet<int> _isBackingUp = new();
+    private bool _isMassBackingUp = false;
 
     protected override async Task OnInitializedAsync()
     {
-            await LoadDevices();
-        }
+        await LoadDevices();
+    }
 
     private async Task LoadDevices()
     {
@@ -117,7 +138,7 @@
     }
 
     private async Task OpenAddDeviceDialog()
-        {
+    {
         var parameters = new DialogParameters();
         var dialog = await DialogService.ShowAsync<AddDeviceDialog>("Gerät hinzufügen", parameters);
         var result = await dialog.Result;
@@ -155,9 +176,7 @@
         try
         {
             await BackupService.PerformBackupAsync(device.Id);
-            await LoadDevices(); // Reload to update "Last Backup" and count
-            Snackbar.Add($"Backup für {device.Name} erfolgreich.", Severity.Success);
-}
+        }
         catch(Exception ex)
         {
             Snackbar.Add($"Fehler beim Backup von {device.Name}: {ex.Message}", Severity.Error);
@@ -166,6 +185,50 @@
         {
             _isBackingUp.Remove(device.Id);
             StateHasChanged();
+        }
+    }
+
+    private async Task BackupSelected()
+    {
+        if (!_selectedItems.Any() || _isMassBackingUp) return;
+
+        _isMassBackingUp = true;
+        var itemsToBackup = _selectedItems.ToList();
+        
+        try
+        {
+            foreach (var device in itemsToBackup)
+            {
+                await BackupDevice(device);
+            }
+            
+            await LoadDevices();
+            Snackbar.Add($"{itemsToBackup.Count} Backups abgeschlossen.", Severity.Success);
+        }
+        finally
+        {
+            _isMassBackingUp = false;
+            _selectedItems.Clear();
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteSelected()
+    {
+        if (!_selectedItems.Any()) return;
+
+        bool? result = await DialogService.ShowMessageBox(
+            "Ausgewählte Geräte löschen",
+            $"Sind Sie sicher, dass Sie {_selectedItems.Count} Geräte und alle deren Backups löschen möchten?",
+            yesText: "Löschen", cancelText: "Abbrechen");
+
+        if (result == true)
+        {
+            Context.Devices.RemoveRange(_selectedItems);
+            await Context.SaveChangesAsync();
+            _selectedItems.Clear();
+            await LoadDevices();
+            Snackbar.Add("Geräte gelöscht", Severity.Success);
         }
     }
 
@@ -185,3 +248,5 @@
          }
     }
 }
+
+
