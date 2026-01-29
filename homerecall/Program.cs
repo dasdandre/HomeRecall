@@ -4,7 +4,7 @@ using HomeRecall.Components;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddControllers();
+
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
@@ -22,10 +22,16 @@ var persistPath = Environment.GetEnvironmentVariable("persist_path");
 if (string.IsNullOrEmpty(persistPath))
 {
     persistPath = Path.Combine(Directory.GetCurrentDirectory(), "data");
+}
+
+// Ensure the directory exists (important if persist_path is provided via env var)
+if (!Directory.Exists(persistPath))
+{
     Directory.CreateDirectory(persistPath);
 }
 
-var dbPath = Path.Combine(persistPath, "homerecall.db");
+// Use absolute path for SQLite to avoid issues with relative paths in connection strings
+var dbPath = Path.GetFullPath(Path.Combine(persistPath, "homerecall.db"));
 builder.Services.AddDbContext<BackupContext>(options =>
     options.UseSqlite($"Data Source={dbPath}"));
 
@@ -43,7 +49,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 // Ingress usually handles SSL termination, so HTTP is fine internally, but standard practice:
-// app.UseHttpsRedirection(); 
+// app.UseHttpsRedirection();
 
 // Path Base handling for Ingress
 // HA Ingress sets HTTP_X_INGRESS_PATH header. We MUST use this to set PathBase.
@@ -60,12 +66,8 @@ app.Use(async (context, next) =>
 
 // Ensure Static Files are served correctly even behind Ingress paths
 app.UseStaticFiles();
-
-app.UseRouting(); // UseRouting must come before Antiforgery and Endpoint Mapping if we manipulate PathBase
-
+app.UseRouting(); 
 app.UseAntiforgery();
-
-
 app.MapControllers();
 
 // Ingress Setup:
@@ -86,3 +88,4 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
