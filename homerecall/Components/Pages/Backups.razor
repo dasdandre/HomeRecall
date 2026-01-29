@@ -39,9 +39,10 @@ else
               Breakpoint="Breakpoint.Sm"
               Loading="@_loading"
               LoadingProgressColor="Color.Info">
-        <HeaderContent>
+                <HeaderContent>
             <MudTh>@L["Backups_Date"]</MudTh>
             <MudTh>@L["Backups_Checksum"]</MudTh>
+            <MudTh>Info</MudTh>
             <MudTh>@L["Backups_Note"]</MudTh>
             <MudTh>@L["Backups_Locked"]</MudTh>
             <MudTh Style="text-align:right">@L["Devices_Table_Actions"]</MudTh>
@@ -50,6 +51,20 @@ else
             <MudTd DataLabel="@L["Backups_Date"]">@context.CreatedAt.ToLocalTime().ToString("g")</MudTd>
             <MudTd DataLabel="@L["Backups_Checksum"]">
                 <code style="font-size: 0.8rem">@context.Sha1Checksum.Substring(0, Math.Min(8, context.Sha1Checksum.Length))</code>
+            </MudTd>
+            <MudTd DataLabel="Info">
+                 @if (IsDuplicateOfPrevious(context))
+                 {
+                     <MudTooltip Text="@L["Backups_ContentUnchanged"]">
+                        <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Default" Size="Size.Small" />
+                     </MudTooltip>
+                 }
+                 else
+                 {
+                     <MudTooltip Text="@L["Backups_ContentChanged"]">
+                        <MudIcon Icon="@Icons.Material.Filled.Update" Color="Color.Success" Size="Size.Small" />
+                     </MudTooltip>
+                 }
             </MudTd>
             <MudTd DataLabel="@L["Backups_Note"]">
                  <MudTextField Value="@context.Note"
@@ -111,6 +126,22 @@ else
             .Include(d => d.Backups)
             .FirstOrDefaultAsync(d => d.Id == DeviceId);
         _loading = false;
+    }
+
+    private bool IsDuplicateOfPrevious(Backup current)
+    {
+        // Check if the NEXT older backup has the same hash.
+        // Since the list is typically ordered descending by date in UI, but we need to check logical predecessor.
+        // We can do this in-memory since we load all backups for the device anyway.
+        
+        var allBackups = _device?.Backups.OrderByDescending(b => b.CreatedAt).ToList();
+        if (allBackups == null) return false;
+
+        var index = allBackups.IndexOf(current);
+        if (index == -1 || index == allBackups.Count - 1) return false; // Not found or oldest item
+
+        var previous = allBackups[index + 1];
+        return previous.Sha1Checksum == current.Sha1Checksum;
     }
 
     private async Task ToggleLock(Backup backup)

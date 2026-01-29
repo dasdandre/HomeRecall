@@ -177,4 +177,10 @@
   <data name="Common_No" xml:space="preserve">
     <value>Nein</value>
   </data>
+  <data name="Backups_ContentUnchanged" xml:space="preserve">
+    <value>Inhalt identisch zum vorherigen Backup</value>
+  </data>
+  <data name="Backups_ContentChanged" xml:space="preserve">
+    <value>Inhalt geändert</value>
+  </data>
 </root>

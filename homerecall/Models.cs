@@ -51,3 +51,5 @@ public class Backup
     
     public string? Note { get; set; }
 }
+
+public record BackupFile(string Name, byte[] Content);

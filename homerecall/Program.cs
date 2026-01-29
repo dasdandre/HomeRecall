@@ -11,6 +11,16 @@ builder.Services.AddHttpClient();
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 builder.Services.AddScoped<HomeRecall.Services.IBackupService, HomeRecall.Services.BackupService>();
 
+// Register all strategies
+builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.TasmotaStrategy>();
+builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.WledStrategy>();
+builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.ShellyStrategy>();
+builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.ShellyGen2Strategy>();
+builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.OpenDtuStrategy>();
+builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.AiOnTheEdgeStrategy>();
+builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.AwtrixStrategy>();
+builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.OpenHaspStrategy>();
+
 builder.Services.AddMudServices();
 builder.Services.AddHttpContextAccessor();
 
