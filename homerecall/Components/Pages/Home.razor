@@ -61,19 +61,28 @@
                          <MudButton Variant="Variant.Outlined" 
                                     Color="Color.Primary" 
                                     Size="Size.Small" 
-                                    StartIcon="@Icons.Material.Filled.Backup"
+                                    StartIcon="@(_isBackingUp.Contains(context.Id) ? null : Icons.Material.Filled.Backup)"
+                                    Disabled="@(_isBackingUp.Contains(context.Id))"
                                     OnClick="@(() => BackupDevice(context))">
-                             Backup
+                             @if (_isBackingUp.Contains(context.Id))
+                             {
+                                 <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                 <MudText Class="ms-2">Backup...</MudText>
+                             }
+                             else
+                             {
+                                 <MudText>Backup</MudText>
+                             }
                          </MudButton>
 
-                        <MudButton Variant="Variant.Outlined" 
-                                   Color="Color.Secondary" 
-                                   Size="Size.Small" 
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Secondary"
+                                   Size="Size.Small"
                                    StartIcon="@Icons.Material.Filled.History"
                                    OnClick="@(() => NavigateToBackups(context.Id))">
                             Backups (@context.Backups.Count)
                         </MudButton>
-                        
+
                         <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
                              <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => RenameDevice(context))">Umbenennen</MudMenuItem>
                              <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => DeleteDevice(context))" IconColor="Color.Error">Löschen</MudMenuItem>
@@ -88,11 +97,12 @@
 @code {
     private List<Device> _devices = new();
     private bool _loading = true;
+    private HashSet<int> _isBackingUp = new();
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadDevices();
-    }
+            await LoadDevices();
+        }
 
     private async Task LoadDevices()
     {
@@ -107,11 +117,11 @@
     }
 
     private async Task OpenAddDeviceDialog()
-    {
+        {
         var parameters = new DialogParameters();
         var dialog = await DialogService.ShowAsync<AddDeviceDialog>("Gerät hinzufügen", parameters);
         var result = await dialog.Result;
-
+        
         if (result != null && !result.Canceled)
         {
             await LoadDevices();
@@ -125,40 +135,47 @@
             { nameof(RenameDeviceDialog.DeviceId), device.Id },
             { nameof(RenameDeviceDialog.CurrentName), device.Name }
         };
-        
+
         var dialog = await DialogService.ShowAsync<RenameDeviceDialog>("Gerät umbenennen", parameters);
         var result = await dialog.Result;
-        
+
         if (result != null && !result.Canceled)
         {
-            await LoadDevices();
-        }
+             await LoadDevices();
+         }
     }
 
     private async Task BackupDevice(Device device)
     {
-        Snackbar.Add($"Backup für {device.Name} gestartet...", Severity.Info);
-        // Wir lassen das asynchron laufen, aber aktualisieren die Liste danach nicht sofort, da es dauern kann.
-        // Optional könnte man hier einen Spinner am Button anzeigen.
-        try 
+        if (_isBackingUp.Contains(device.Id)) return;
+
+        _isBackingUp.Add(device.Id);
+        StateHasChanged();
+
+        try
         {
             await BackupService.PerformBackupAsync(device.Id);
             await LoadDevices(); // Reload to update "Last Backup" and count
             Snackbar.Add($"Backup für {device.Name} erfolgreich.", Severity.Success);
-        }
+}
         catch(Exception ex)
         {
-            Snackbar.Add($"Fehler beim Backup: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Fehler beim Backup von {device.Name}: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isBackingUp.Remove(device.Id);
+            StateHasChanged();
         }
     }
-    
+
     private async Task DeleteDevice(Device device)
     {
          bool? result = await DialogService.ShowMessageBox(
-            "Gerät löschen", 
-            $"Sind Sie sicher, dass Sie '{device.Name}' löschen möchten? Alle zugehörigen Backups werden ebenfalls gelöscht.", 
+            "Gerät löschen",
+            $"Sind Sie sicher, dass Sie '{device.Name}' löschen möchten? Alle zugehörigen Backups werden ebenfalls gelöscht.",
             yesText:"Löschen", cancelText:"Abbrechen");
-            
+
          if (result == true)
          {
              Context.Devices.Remove(device);
