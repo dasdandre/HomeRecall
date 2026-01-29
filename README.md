@@ -8,9 +8,9 @@
 
 > ⚠️ **Early Development Access**: This project is still in a very early development phase and **should not be used in production environments yet**.
 
-**HomeRecall** is a modern, lightweight backup solution for your IoT devices, designed to run seamlessly as a **Home Assistant Add-on**.
+**HomeRecall** is the centralized backup solution for your Smart Home devices. Designed to run seamlessly as a **Home Assistant Add-on**, it works just as well as a **standalone Docker container** or **native .NET application**.
 
-Never lose your Tasmota, WLED, or Shelly configurations again.
+Never lose configurations for **Tasmota**, **WLED**, **Shelly** (Gen 1-4), **OpenDTU**, **AI-on-the-Edge**, **Awtrix Light**, or **openHASP** devices again.
 
 ---
 
@@ -24,13 +24,17 @@ The entire codebase—from the backend architecture in .NET 10 to the responsive
 
 ## 🚀 Features
 
-*   **📱 Device Management:** Easily manage your IoT devices (Tasmota, WLED, Shelly) in a clean list view.
+*   **📱 Device Management:** Easily manage your IoT devices in a clean list view.
+    *   **Supported Devices:** Tasmota, WLED, Shelly (Gen 1-4), OpenDTU, AI-on-the-Edge, Awtrix Light, openHASP.
 *   **🌍 Multi-language Support:** Fully localized in English and German.
 *   **💾 One-Click Backups:** Create backups of your device configurations instantly.
+*   **📂 Smart Storage:** Backups are stored with readable timestamps. Identical consecutive backups are visually highlighted in the UI to track changes easily.
 *   **🔄 Mass Backup:** Backup all your devices at once with a single click.
+*   **🚀 Flexible Deployment:**
+    *   **Home Assistant:** Native integration via Add-on & Ingress.
+    *   **Standalone:** Runs anywhere Docker or .NET runs (NAS, Raspberry Pi, Windows/Linux/Mac).
 *   **🎨 Seamless Integration:** 
-    *   Runs directly within Home Assistant via **Ingress**.
-    *   **Auto-Theming:** Automatically syncs with your Home Assistant theme (Light/Dark mode and colors).
+    *   **Auto-Theming:** Automatically syncs with your Home Assistant theme (Light/Dark mode and colors) when running as an Add-on.
 *   **📦 History & Versioning:** Keep multiple versions of backups for every device.
 *   **🔒 Local Storage:** Your data stays on your drive. No cloud required.
 

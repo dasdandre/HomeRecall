@@ -48,10 +48,22 @@ This was the most complex part of the setup. The app runs behind a dynamic path 
 *   **Runtime:** We install ASP.NET Core Runtime manually via `dotnet-install.sh` in the Dockerfile because Alpine repos often lag behind.
 *   **Startup:** We use a `run.sh` script (`CMD ["/run.sh"]`) to be compatible with the S6 Overlay init system used by Home Assistant. Direct `dotnet` entrypoints fail with PID 1 errors.
 
+### 6. Backup Strategy Pattern
+*   **Problem:** The `BackupService` became a monolith with many `if/else` blocks for different device types.
+*   **Solution:** Refactored into a Strategy Pattern (`IDeviceStrategy`).
+*   **Implementation:** 
+    *   Each device type (Tasmota, WLED, Shelly, etc.) has its own class in `Services/Strategies`.
+    *   `BackupService` simply iterates through injected strategies to find the right one.
+    *   **Deduplication:** 
+        *   Logic: If the *content* hash matches the *last* backup of the same device, the existing file on disk is reused.
+        *   Naming: Files are named `YYYY-MM-DD_Name_Type_Hash.zip`.
+        *   UI: A visual indicator shows if content has changed compared to the previous backup.
+
 ## Directory Structure
 *   `homerecall/Components/Pages`: Blazor pages (Home, Backups).
 *   `homerecall/Components/Layout`: MainLayout (AppBar, Theming Logic).
 *   `homerecall/Resources`: Resx files for translations.
+*   `homerecall/Services/Strategies`: Device specific backup implementations.
 *   `homerecall/wwwroot`: Static assets (JS for theming, custom CSS).
 *   `homerecall/data`: SQLite DB location (mapped to `/config` or `./data`).
 *   `homerecall/backups`: Backup storage (mapped to `/backup` or `./backups`).
