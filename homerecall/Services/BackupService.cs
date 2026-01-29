@@ -71,11 +71,92 @@ public class BackupService : IBackupService
             else if (device.Type == DeviceType.Shelly)
             {
                 // Shelly Gen1: http://ip/settings (json)
-                // Shelly Gen2: RPC calls.
-                // This needs a more complex implementation.
-                // Placeholder: fetch settings endpoint
                 var data = await DownloadFileAsync($"http://{device.IpAddress}/settings");
                 backupFiles.Add(new BackupFile("settings.json", data));
+            }
+            else if (device.Type == DeviceType.ShellyGen2)
+            {
+                 // Shelly Gen 2/3/4 (RPC based)
+                 // Endpoint: http://ip/rpc/Shelly.GetConfig
+                 // This returns the full configuration JSON.
+                 var data = await DownloadFileAsync($"http://{device.IpAddress}/rpc/Shelly.GetConfig");
+                 backupFiles.Add(new BackupFile("config.json", data));
+                 
+                 // Optionally, we could also fetch script content if scripts are used, 
+                 // but GetConfig usually covers the main settings. 
+                 // Scripts are stored separately in Gen2 usually, but for now Main Config is priority.
+            }
+            else if (device.Type == DeviceType.OpenDtu)
+            {
+                 // OpenDTU: http://ip/api/config
+                 var data = await DownloadFileAsync($"http://{device.IpAddress}/api/config");
+                 backupFiles.Add(new BackupFile("config.json", data));
+                 
+                 // Pin mapping is sometimes separate or included, checking documentation, config.json is the main export
+            }
+            else if (device.Type == DeviceType.AiOnTheEdge)
+            {
+                // AI-on-the-Edge-device
+                // http://ip/fileserver/config/config.ini
+                // http://ip/fileserver/config/ref0.jpg (etc) - Images are crucial.
+                // Better approach: Some versions support a full zip export via API, 
+                // but standard file access is reliable.
+                
+                // Let's try to get the config.ini first
+                var configIni = await DownloadFileAsync($"http://{device.IpAddress}/fileserver/config/config.ini");
+                backupFiles.Add(new BackupFile("config/config.ini", configIni));
+
+                // Try to get Reference Images. Usually ref0.jpg, ref1.jpg...
+                // We'll try a few common ones. 
+                // A more robust way would be parsing config.ini to find used images, 
+                // but for MVP we try standard paths.
+                string[] potentialImages = { "config/ref0.jpg", "config/ref1.jpg", "config/reference.jpg" };
+                
+                foreach(var imgPath in potentialImages)
+                {
+                    try 
+                    {
+                        var imgData = await DownloadFileAsync($"http://{device.IpAddress}/fileserver/{imgPath}");
+                        backupFiles.Add(new BackupFile(imgPath, imgData));
+                    }
+                    catch 
+                    {
+                        // Image might not exist, ignore
+                    }
+                }
+            }
+            else if (device.Type == DeviceType.Awtrix)
+            {
+                // Awtrix Light (Ulanzi TC001)
+                // Access via /edit?download=config.json similar to WLED/LittleFS
+                var config = await DownloadFileAsync($"http://{device.IpAddress}/edit?download=/config.json");
+                backupFiles.Add(new BackupFile("config.json", config));
+            }
+            else if (device.Type == DeviceType.OpenHasp)
+            {
+                // openHASP
+                // Uses LittleFS /edit endpoint too usually.
+                // Essential files: config.json, pages.jsonl
+                
+                try 
+                {
+                    var config = await DownloadFileAsync($"http://{device.IpAddress}/edit?download=/config.json");
+                    backupFiles.Add(new BackupFile("config.json", config));
+                }
+                catch (Exception ex) 
+                {
+                     _logger.LogWarning($"Could not download config.json for {device.Name}: {ex.Message}");
+                }
+
+                try
+                {
+                    var pages = await DownloadFileAsync($"http://{device.IpAddress}/edit?download=/pages.jsonl");
+                    backupFiles.Add(new BackupFile("pages.jsonl", pages));
+                }
+                 catch (Exception ex) 
+                {
+                     _logger.LogWarning($"Could not download pages.jsonl for {device.Name}: {ex.Message}");
+                }
             }
 
             if (backupFiles.Count == 0)
@@ -109,8 +190,7 @@ public class BackupService : IBackupService
             memoryStream.Position = 0;
             byte[] zipBytes = memoryStream.ToArray();
 
-            // 5. Check Deduplication
-            // Requirement: If checksum matches the LAST backup of THIS device, reuse file.
+            // 5. Check Deduplication (Information only)
             var lastBackup = await _context.Backups
                 .Where(b => b.DeviceId == device.Id)
                 .OrderByDescending(b => b.CreatedAt)
@@ -118,15 +198,18 @@ public class BackupService : IBackupService
 
             bool isDuplicate = lastBackup != null && lastBackup.Sha1Checksum == checksum;
 
-            string storageFileName = $"{checksum}.zip";
+            // Generate readable filename
+            // Sanitizing the name
+            string safeName = string.Join("_", device.Name.Split(Path.GetInvalidFileNameChars())).Replace(" ", "_");
+            string dateStr = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+            
+            // Format: Date_Name_Type_Hash.zip
+            // Putting date first allows chronological sorting in file explorer
+            string storageFileName = $"{dateStr}_{safeName}_{device.Type}_{checksum[..8]}.zip";
             string storagePath = Path.Combine(_backupDirectory, storageFileName);
 
-            // Just ensure we don't overwrite if it exists, or write if it doesn't.
-            // Global deduplication of storage: If ANY backup has this hash, the file exists.
-            if (!File.Exists(storagePath))
-            {
-                await File.WriteAllBytesAsync(storagePath, zipBytes);
-            }
+            // Always write the file as the timestamp makes it unique
+            await File.WriteAllBytesAsync(storagePath, zipBytes);
 
             // Note: We always create a new DB entry to track the history event
             var backup = new Backup

@@ -7,7 +7,12 @@ public enum DeviceType
 {
     Tasmota,
     Wled,
-    Shelly
+    Shelly,
+    ShellyGen2,
+    OpenDtu,
+    AiOnTheEdge,
+    Awtrix,
+    OpenHasp
 }
 
 public class Device
