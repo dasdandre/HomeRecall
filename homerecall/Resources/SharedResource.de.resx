@@ -177,6 +177,54 @@
   <data name="Common_No" xml:space="preserve">
     <value>Nein</value>
   </data>
+  <data name="Settings_AutoBackup_Title" xml:space="preserve">
+    <value>Automatisches Backup</value>
+  </data>
+  <data name="Settings_AutoBackup_Enabled" xml:space="preserve">
+    <value>Automatische Backups aktivieren</value>
+  </data>
+  <data name="Settings_BackupInterval" xml:space="preserve">
+    <value>Prüf-Intervall</value>
+  </data>
+  <data name="Settings_Interval_Hourly" xml:space="preserve">
+    <value>Stündlich</value>
+  </data>
+  <data name="Settings_Interval_12h" xml:space="preserve">
+    <value>Alle 12 Stunden</value>
+  </data>
+  <data name="Settings_Interval_Daily" xml:space="preserve">
+    <value>Täglich (24h)</value>
+  </data>
+  <data name="Settings_Interval_Weekly" xml:space="preserve">
+    <value>Wöchentlich</value>
+  </data>
+  <data name="Settings_RetentionStrategy" xml:space="preserve">
+    <value>Aufbewahrungsstrategie</value>
+  </data>
+  <data name="Settings_Retention_Smart" xml:space="preserve">
+    <value>Smart (Empfohlen)</value>
+  </data>
+  <data name="Settings_Retention_SimpleDays" xml:space="preserve">
+    <value>Behalte X Tage</value>
+  </data>
+  <data name="Settings_Retention_SimpleCount" xml:space="preserve">
+    <value>Behalte letzte X</value>
+  </data>
+  <data name="Settings_Retention_KeepAll" xml:space="preserve">
+    <value>Alles behalten</value>
+  </data>
+  <data name="Settings_Retention_Days" xml:space="preserve">
+    <value>Tage behalten</value>
+  </data>
+  <data name="Settings_Retention_Count" xml:space="preserve">
+    <value>Anzahl behalten</value>
+  </data>
+  <data name="Settings_Retention_Smart_Info" xml:space="preserve">
+    <value>Smart Strategie behält: Alle (24h), 1/Tag (7 Tage), 1/Woche (3 Monate). Minimum 5 Backups werden immer behalten.</value>
+  </data>
+  <data name="Settings_Saved_Success" xml:space="preserve">
+    <value>Einstellungen erfolgreich gespeichert</value>
+  </data>
   <data name="Backups_ContentUnchanged" xml:space="preserve">
     <value>Inhalt identisch zum vorherigen Backup</value>
   </data>

@@ -21,6 +21,8 @@ builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Servi
 builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.AwtrixStrategy>();
 builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.OpenHaspStrategy>();
 
+builder.Services.AddHostedService<HomeRecall.Services.BackupScheduler>();
+
 builder.Services.AddMudServices();
 builder.Services.AddHttpContextAccessor();
 
@@ -103,8 +105,8 @@ app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 // Ensure DB created
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<BackupContext>();
-    db.Database.EnsureCreated();
+    var db = scope.ServiceProvider.GetRequiredService<BackupContext>();    
+    db.Database.Migrate();
 }
 
 app.Run();

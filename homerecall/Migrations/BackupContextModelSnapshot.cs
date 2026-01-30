@@ -17,6 +17,47 @@ namespace HomeRecall.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
 
+            modelBuilder.Entity("HomeRecall.AppSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("AutoBackupEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BackupIntervalHours")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BackupStartHour")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MaxCountToKeep")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MaxDaysToKeep")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RetentionMode")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Settings");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            AutoBackupEnabled = false,
+                            BackupIntervalHours = 24,
+                            BackupStartHour = 3,
+                            MaxCountToKeep = 10,
+                            MaxDaysToKeep = 30,
+                            RetentionMode = 0
+                        });
+                });
+
             modelBuilder.Entity("HomeRecall.Backup", b =>
                 {
                     b.Property<int>("Id")
@@ -54,6 +95,9 @@ namespace HomeRecall.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool?>("AutoBackupOverride")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("IpAddress")

@@ -15,6 +15,33 @@ public enum DeviceType
     OpenHasp
 }
 
+public enum RetentionMode
+{
+    Smart,       // 24h full, 7d daily, 3m weekly
+    SimpleDays,  // Keep all for X days
+    SimpleCount, // Keep last X
+    KeepAll      // Never delete
+}
+
+public class AppSettings
+{
+    public int Id { get; set; } // Singleton, usually ID 1
+    
+    // Auto-Backup Settings
+    public bool AutoBackupEnabled { get; set; } = false;
+    public int BackupIntervalHours { get; set; } = 24; // Default: Every 24h
+    public int BackupStartHour { get; set; } = 3; // 03:00 AM
+    
+    // Retention / Pruning Settings
+    public RetentionMode RetentionMode { get; set; } = RetentionMode.Smart;
+    
+    // For "SimpleDays" Mode
+    public int MaxDaysToKeep { get; set; } = 30; 
+    
+    // For "SimpleCount" Mode
+    public int MaxCountToKeep { get; set; } = 10;
+}
+
 public class Device
 {
     public int Id { get; set; }
@@ -28,6 +55,9 @@ public class Device
     public DeviceType Type { get; set; }
     
     public DateTime? LastBackup { get; set; }
+    
+    // Auto-Backup specific overrides (optional, nullable means inherit from AppSettings)
+    public bool? AutoBackupOverride { get; set; } 
     
     public List<Backup> Backups { get; set; } = new();
 }

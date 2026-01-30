@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace HomeRecall.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialGenericSchema : Migration
+    public partial class InitialDB : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -20,11 +20,30 @@ namespace HomeRecall.Migrations
                     Name = table.Column<string>(type: "TEXT", nullable: false),
                     IpAddress = table.Column<string>(type: "TEXT", nullable: false),
                     Type = table.Column<int>(type: "INTEGER", nullable: false),
-                    LastBackup = table.Column<DateTime>(type: "TEXT", nullable: true)
+                    LastBackup = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    AutoBackupOverride = table.Column<bool>(type: "INTEGER", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Devices", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Settings",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    AutoBackupEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    BackupIntervalHours = table.Column<int>(type: "INTEGER", nullable: false),
+                    BackupStartHour = table.Column<int>(type: "INTEGER", nullable: false),
+                    RetentionMode = table.Column<int>(type: "INTEGER", nullable: false),
+                    MaxDaysToKeep = table.Column<int>(type: "INTEGER", nullable: false),
+                    MaxCountToKeep = table.Column<int>(type: "INTEGER", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Settings", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -51,6 +70,11 @@ namespace HomeRecall.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.InsertData(
+                table: "Settings",
+                columns: new[] { "Id", "AutoBackupEnabled", "BackupIntervalHours", "BackupStartHour", "MaxCountToKeep", "MaxDaysToKeep", "RetentionMode" },
+                values: new object[] { 1, false, 24, 3, 10, 30, 0 });
+
             migrationBuilder.CreateIndex(
                 name: "IX_Backups_DeviceId",
                 table: "Backups",
@@ -62,6 +86,9 @@ namespace HomeRecall.Migrations
         {
             migrationBuilder.DropTable(
                 name: "Backups");
+
+            migrationBuilder.DropTable(
+                name: "Settings");
 
             migrationBuilder.DropTable(
                 name: "Devices");

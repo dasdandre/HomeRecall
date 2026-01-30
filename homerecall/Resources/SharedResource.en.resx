@@ -177,6 +177,54 @@
   <data name="Common_No" xml:space="preserve">
     <value>No</value>
   </data>
+  <data name="Settings_AutoBackup_Title" xml:space="preserve">
+    <value>Automatic Backup</value>
+  </data>
+  <data name="Settings_AutoBackup_Enabled" xml:space="preserve">
+    <value>Enable Automatic Backups</value>
+  </data>
+  <data name="Settings_BackupInterval" xml:space="preserve">
+    <value>Check Interval</value>
+  </data>
+  <data name="Settings_Interval_Hourly" xml:space="preserve">
+    <value>Hourly</value>
+  </data>
+  <data name="Settings_Interval_12h" xml:space="preserve">
+    <value>Every 12 Hours</value>
+  </data>
+  <data name="Settings_Interval_Daily" xml:space="preserve">
+    <value>Daily (24h)</value>
+  </data>
+  <data name="Settings_Interval_Weekly" xml:space="preserve">
+    <value>Weekly</value>
+  </data>
+  <data name="Settings_RetentionStrategy" xml:space="preserve">
+    <value>Retention Strategy</value>
+  </data>
+  <data name="Settings_Retention_Smart" xml:space="preserve">
+    <value>Smart (Recommended)</value>
+  </data>
+  <data name="Settings_Retention_SimpleDays" xml:space="preserve">
+    <value>Keep for X Days</value>
+  </data>
+  <data name="Settings_Retention_SimpleCount" xml:space="preserve">
+    <value>Keep last X Backups</value>
+  </data>
+  <data name="Settings_Retention_KeepAll" xml:space="preserve">
+    <value>Keep Everything</value>
+  </data>
+  <data name="Settings_Retention_Days" xml:space="preserve">
+    <value>Days to keep</value>
+  </data>
+  <data name="Settings_Retention_Count" xml:space="preserve">
+    <value>Count to keep</value>
+  </data>
+  <data name="Settings_Retention_Smart_Info" xml:space="preserve">
+    <value>Smart Strategy keeps: All (24h), 1/Day (7 Days), 1/Week (3 Months). Minimum 5 backups always kept.</value>
+  </data>
+  <data name="Settings_Saved_Success" xml:space="preserve">
+    <value>Settings saved successfully</value>
+  </data>
   <data name="Backups_ContentUnchanged" xml:space="preserve">
     <value>Content identical to previous backup</value>
   </data>

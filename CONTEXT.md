@@ -59,6 +59,16 @@ This was the most complex part of the setup. The app runs behind a dynamic path 
         *   Naming: Files are named `YYYY-MM-DD_Name_Type_Hash.zip`.
         *   UI: A visual indicator shows if content has changed compared to the previous backup.
 
+### 7. Automatic Backups & Retention
+*   **Mechanism:** `BackupScheduler` (Background Service) checks every 15 minutes.
+*   **Settings:** Stored in DB table `AppSettings` (singleton).
+*   **Deduplication:** Uses the Hash-based deduplication of `BackupService`.
+*   **Retention Strategy (GFS):**
+    *   **Smart (Default):** Keeps 24h of hourly backups, 7 days of daily backups, and 3 months of weekly backups.
+    *   **Fallback:** Always keeps at least 5 backups.
+    *   **Override:** Locked backups are never deleted.
+*   **Database Migration:** Switched from `EnsureCreated()` to `Migrate()` to support schema evolution.
+
 ## Directory Structure
 *   `homerecall/Components/Pages`: Blazor pages (Home, Backups).
 *   `homerecall/Components/Layout`: MainLayout (AppBar, Theming Logic).
