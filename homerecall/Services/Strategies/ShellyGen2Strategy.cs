@@ -13,14 +13,29 @@ public class ShellyGen2Strategy : IDeviceStrategy
         try
         {
              // Shelly Gen2/3/4 Status RPC
-             var status = await httpClient.GetFromJsonAsync<ShellyStatus>($"http://{device.IpAddress}/rpc/Shelly.GetStatus");
-             if (status?.Sys?.Ver != null) version = status.Sys.Ver;
+             // Try GetDeviceInfo which is more reliable for version info
+             var deviceInfo = await httpClient.GetFromJsonAsync<ShellyDeviceInfo>($"http://{device.IpAddress}/rpc/Shelly.GetDeviceInfo");
+             if (deviceInfo?.Ver != null) 
+             {
+                 version = deviceInfo.Ver;
+             }
+             else if (deviceInfo?.FwId != null)
+             {
+                 // Fallback to fw_id if ver is missing
+                 version = deviceInfo.FwId;
+             }
         }
         catch { }
 
         return new DeviceBackupResult(files, version);
     }
     
-    private class ShellyStatus { public ShellySys? Sys { get; set; } }
-    private class ShellySys { public string? Ver { get; set; } }
+    private class ShellyDeviceInfo 
+    { 
+        [System.Text.Json.Serialization.JsonPropertyName("ver")]
+        public string? Ver { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("fw_id")]
+        public string? FwId { get; set; }
+    }
 }
