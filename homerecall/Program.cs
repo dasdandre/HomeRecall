@@ -21,6 +21,8 @@ builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Servi
 builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.AwtrixStrategy>();
 builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.OpenHaspStrategy>();
 
+builder.Services.AddScoped<HomeRecall.Services.IDeviceScanner, HomeRecall.Services.DeviceScanner>();
+
 builder.Services.AddHostedService<HomeRecall.Services.BackupScheduler>();
 
 builder.Services.AddMudServices();

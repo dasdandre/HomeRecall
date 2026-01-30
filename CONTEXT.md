@@ -74,6 +74,12 @@ This was the most complex part of the setup. The app runs behind a dynamic path 
     *   **Override:** Locked backups are never deleted.
 *   **Database Migration:** Switched from `EnsureCreated()` to `Migrate()` to support schema evolution.
 
+### 8. Device Discovery (Network Scanner)
+*   **Mechanism:** `DeviceScanner` service scans IP ranges in parallel using `Parallel.ForEachAsync`.
+*   **UI:** `ScanDialog` allows users to define IP range (Start IP + End Suffix) and device types.
+*   **Identification:** Probes specific HTTP endpoints (fingerprinting) to identify Tasmota, Shelly, WLED, etc.
+*   **Feedback:** Real-time progress reporting via `IProgress<int>`.
+
 ## Directory Structure
 *   `homerecall/Components/Pages`: Blazor pages (Home, Backups).
 *   `homerecall/Components/Layout`: MainLayout (AppBar, Theming Logic).

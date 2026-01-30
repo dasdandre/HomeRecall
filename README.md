@@ -29,6 +29,7 @@ The entire codebase—from the backend architecture in .NET 10 to the responsive
 *   **🌍 Multi-language Support:** Fully localized in English and German.
 *   **💾 One-Click Backups:** Create backups of your device configurations instantly.
 *   **📂 Smart Storage:** Backups are stored with readable timestamps. Identical consecutive backups are visually highlighted in the UI to track changes easily.
+*   **🔎 Network Scanner:** Automatically discover devices in your network. Scan IP ranges and detect device types (Tasmota, Shelly, etc.) with a single click.
 *   **🔄 Mass Backup:** Backup all your devices at once with a single click.
 *   **🚀 Flexible Deployment:**
     *   **Home Assistant:** Native integration via Add-on & Ingress.

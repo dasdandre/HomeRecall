@@ -231,4 +231,49 @@
   <data name="Backups_ContentChanged" xml:space="preserve">
     <value>Content changed</value>
   </data>
+  <data name="Devices_Scan" xml:space="preserve">
+    <value>Scan Network</value>
+  </data>
+  <data name="Scan_Title" xml:space="preserve">
+    <value>Network Device Scan</value>
+  </data>
+  <data name="Scan_Intro" xml:space="preserve">
+    <value>Enter a base IP address to scan for compatible devices in the network (e.g. 192.168.1.1 will scan .1 to .254).</value>
+  </data>
+  <data name="Scan_IpAddress_Label" xml:space="preserve">
+    <value>Base IP Address</value>
+  </data>
+  <data name="Scan_IpAddress_Helper" xml:space="preserve">
+    <value>e.g. 192.168.1.1</value>
+  </data>
+  <data name="Scan_DeviceTypes" xml:space="preserve">
+    <value>Device Types to Scan</value>
+  </data>
+  <data name="Scan_Running" xml:space="preserve">
+    <value>Scanning Network...</value>
+  </data>
+  <data name="Scan_NoDevicesFound" xml:space="preserve">
+    <value>No new devices found.</value>
+  </data>
+  <data name="Scan_Results_Title" xml:space="preserve">
+    <value>Discovered Devices</value>
+  </data>
+  <data name="Scan_Start" xml:space="preserve">
+    <value>Start Scan</value>
+  </data>
+  <data name="Scan_AddSelected" xml:space="preserve">
+    <value>Add Selected</value>
+  </data>
+  <data name="Common_Retry" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+  <data name="Scan_StartIp" xml:space="preserve">
+    <value>Start IP</value>
+  </data>
+  <data name="Scan_EndSuffix" xml:space="preserve">
+    <value>End Suffix</value>
+  </data>
+  <data name="Scan_Range_Preview" xml:space="preserve">
+    <value>Range</value>
+  </data>
 </root>

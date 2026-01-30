@@ -231,4 +231,49 @@
   <data name="Backups_ContentChanged" xml:space="preserve">
     <value>Inhalt geändert</value>
   </data>
+  <data name="Devices_Scan" xml:space="preserve">
+    <value>Netzwerk scannen</value>
+  </data>
+  <data name="Scan_Title" xml:space="preserve">
+    <value>Gerätesuche</value>
+  </data>
+  <data name="Scan_Intro" xml:space="preserve">
+    <value>Geben Sie eine Basis-IP ein, um das Subnetz nach kompatiblen Geräten zu durchsuchen (z.B. 192.168.1.1 scannt .1 bis .254).</value>
+  </data>
+  <data name="Scan_IpAddress_Label" xml:space="preserve">
+    <value>Basis IP-Adresse</value>
+  </data>
+  <data name="Scan_IpAddress_Helper" xml:space="preserve">
+    <value>z.B. 192.168.1.1</value>
+  </data>
+  <data name="Scan_DeviceTypes" xml:space="preserve">
+    <value>Zu suchende Gerätetypen</value>
+  </data>
+  <data name="Scan_Running" xml:space="preserve">
+    <value>Netzwerk wird gescannt...</value>
+  </data>
+  <data name="Scan_NoDevicesFound" xml:space="preserve">
+    <value>Keine neuen Geräte gefunden.</value>
+  </data>
+  <data name="Scan_Results_Title" xml:space="preserve">
+    <value>Gefundene Geräte</value>
+  </data>
+  <data name="Scan_Start" xml:space="preserve">
+    <value>Scan starten</value>
+  </data>
+  <data name="Scan_AddSelected" xml:space="preserve">
+    <value>Ausgewählte hinzufügen</value>
+  </data>
+  <data name="Common_Retry" xml:space="preserve">
+    <value>Wiederholen</value>
+  </data>
+  <data name="Scan_StartIp" xml:space="preserve">
+    <value>Start IP</value>
+  </data>
+  <data name="Scan_EndSuffix" xml:space="preserve">
+    <value>End Suffix</value>
+  </data>
+  <data name="Scan_Range_Preview" xml:space="preserve">
+    <value>Bereich</value>
+  </data>
 </root>

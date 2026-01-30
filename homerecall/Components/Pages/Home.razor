@@ -30,6 +30,9 @@
                     @L["Devices_DeleteSelected"] (@_selectedItems.Count)
                 </MudButton>
             }
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="OpenScanDialog" StartIcon="@Icons.Material.Filled.Search">
+                @L["Devices_Scan"]
+            </MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddDeviceDialog" StartIcon="@Icons.Material.Filled.Add">
                 @L["Devices_AddDevice"]
             </MudButton>
@@ -150,7 +153,20 @@
         NavigationManager.NavigateTo($"backups/{deviceId}");
     }
 
-        private async Task OpenAddDeviceDialog()
+        private async Task OpenScanDialog()
+    {
+        var parameters = new DialogParameters();
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<ScanDialog>(L["Scan_Title"], parameters, options);
+        var result = await dialog.Result;
+        
+        if (result != null && !result.Canceled)
+        {
+            await LoadDevices();
+        }
+    }
+
+    private async Task OpenAddDeviceDialog()
     {
         var parameters = new DialogParameters();
         var dialog = await DialogService.ShowAsync<AddDeviceDialog>(L["AddDevice_Title"], parameters);
