@@ -4,7 +4,7 @@ public class AiOnTheEdgeStrategy : IDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.AiOnTheEdge;
 
-    public async Task<List<BackupFile>> BackupAsync(Device device, HttpClient httpClient)
+    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();
 
@@ -24,6 +24,18 @@ public class AiOnTheEdgeStrategy : IDeviceStrategy
                 // Ignore missing images
             }
         }
-        return files;
+
+        string version = string.Empty;
+        // AI-on-the-Edge often has /html/version.txt or just parse config? 
+        // Or /api/hello returns basic info?
+        // Standard API endpoint seems to be /api/version in recent builds.
+        try 
+        {
+             version = await httpClient.GetStringAsync($"http://{device.IpAddress}/api/version");
+             version = version.Trim().Replace("\"", ""); // Cleanup if JSON string
+        }
+        catch { }
+
+        return new DeviceBackupResult(files, version);
     }
 }

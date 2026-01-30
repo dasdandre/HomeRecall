@@ -47,10 +47,11 @@
     else
     {
         <MudTable Items="@_devices" MultiSelection="true" @bind-SelectedItems="_selectedItems" Hover="true" Elevation="3" Breakpoint="Breakpoint.Sm">
-            <HeaderContent>
+                        <HeaderContent>
                 <MudTh>@L["Devices_Table_Name"]</MudTh>
                 <MudTh>@L["Devices_Table_IpAddress"]</MudTh>
                 <MudTh>@L["Devices_Table_Type"]</MudTh>
+                <MudTh>Firmware</MudTh>
                 <MudTh>@L["Devices_Table_LastBackup"]</MudTh>
                 <MudTh Style="text-align:right">@L["Devices_Table_Actions"]</MudTh>
             </HeaderContent>
@@ -63,6 +64,16 @@
                 </MudTd>
                 <MudTd DataLabel="@L["Devices_Table_Type"]">
                     <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@context.Type</MudChip>
+                </MudTd>
+                <MudTd DataLabel="Firmware">
+                    @if (!string.IsNullOrEmpty(context.CurrentFirmwareVersion))
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Default">@context.CurrentFirmwareVersion</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Default">-</MudText>
+                    }
                 </MudTd>
                 <MudTd DataLabel="@L["Devices_Table_LastBackup"]">
                     @if (context.LastBackup.HasValue)

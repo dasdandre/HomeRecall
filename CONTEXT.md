@@ -64,7 +64,12 @@ This was the most complex part of the setup. The app runs behind a dynamic path 
 *   **Settings:** Stored in DB table `AppSettings` (singleton).
 *   **Deduplication:** Uses the Hash-based deduplication of `BackupService`.
 *   **Retention Strategy (GFS):**
-    *   **Smart (Default):** Keeps 24h of hourly backups, 7 days of daily backups, and 3 months of weekly backups.
+    *   **Smart (Default):**
+        *   **24h:** Keep all backups (Detail).
+        *   **7 Days:** Keep 1 per day.
+        *   **1 Month:** Keep 1 per week.
+        *   **1 Year:** Keep 1 per month.
+        *   **> 1 Year:** Keep 1 per year (Archival).
     *   **Fallback:** Always keeps at least 5 backups.
     *   **Override:** Locked backups are never deleted.
 *   **Database Migration:** Switched from `EnsureCreated()` to `Migrate()` to support schema evolution.

@@ -55,6 +55,7 @@ public class Device
     public DeviceType Type { get; set; }
     
     public DateTime? LastBackup { get; set; }
+    public string? CurrentFirmwareVersion { get; set; }
     
     // Auto-Backup specific overrides (optional, nullable means inherit from AppSettings)
     public bool? AutoBackupOverride { get; set; } 
@@ -75,6 +76,8 @@ public class Backup
     
     [Required]
     public string Sha1Checksum { get; set; } = string.Empty;
+
+    public string? FirmwareVersion { get; set; }
     
     // The filename stored on disk (likely just the checksum + .zip)
     public string StoragePath { get; set; } = string.Empty;

@@ -4,7 +4,7 @@ public class WledStrategy : IDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.Wled;
 
-    public async Task<List<BackupFile>> BackupAsync(Device device, HttpClient httpClient)
+    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();
         
@@ -16,11 +16,18 @@ public class WledStrategy : IDeviceStrategy
             var presets = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/edit?download=presets.json");
             files.Add(new("presets.json", presets));
         }
-        catch
-        {
-            // Ignore if presets don't exist
-        }
+        catch { }
 
-        return files;
+        string version = string.Empty;
+        try
+        {
+            var info = await httpClient.GetFromJsonAsync<WledInfo>($"http://{device.IpAddress}/json/info");
+            if (info?.Ver != null) version = info.Ver;
+        }
+        catch { }
+
+        return new DeviceBackupResult(files, version);
     }
+
+    private class WledInfo { public string? Ver { get; set; } }
 }

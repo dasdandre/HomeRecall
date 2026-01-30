@@ -56,16 +56,21 @@ public class BackupService : IBackupService
             var httpClient = _httpClientFactory.CreateClient();
             httpClient.Timeout = TimeSpan.FromSeconds(30);
             
-            var backupFiles = await strategy.BackupAsync(device, httpClient);
+            var result = await strategy.BackupAsync(device, httpClient);
 
-            if (backupFiles == null || backupFiles.Count == 0)
+            if (result == null || result.Files == null || result.Files.Count == 0)
             {
                 _logger.LogError($"No backup data retrieved for {device.Name}");
                 return;
             }
 
+            if (!string.IsNullOrEmpty(result.FirmwareVersion))
+            {
+                device.CurrentFirmwareVersion = result.FirmwareVersion;
+            }
+
             // 2. Sort files by name for determinism
-            var sortedFiles = backupFiles.OrderBy(f => f.Name).ToList();
+            var sortedFiles = result.Files.OrderBy(f => f.Name).ToList();
 
             // 3. Compute SHA1 based on raw content (Config Hash)
             // This ensures deduplication is based on the actual config, not the ZIP binary.
@@ -134,7 +139,8 @@ public class BackupService : IBackupService
                 CreatedAt = DateTime.UtcNow,
                 Sha1Checksum = checksum,
                 StoragePath = storageFileName,
-                IsLocked = false
+                IsLocked = false,
+                FirmwareVersion = result.FirmwareVersion
             };
 
             _context.Backups.Add(backup);

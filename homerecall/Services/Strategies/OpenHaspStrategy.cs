@@ -4,7 +4,7 @@ public class OpenHaspStrategy : IDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.OpenHasp;
 
-    public async Task<List<BackupFile>> BackupAsync(Device device, HttpClient httpClient)
+    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();
 
@@ -21,7 +21,19 @@ public class OpenHaspStrategy : IDeviceStrategy
             files.Add(new("pages.jsonl", pages));
         }
         catch { }
+        
+        string version = string.Empty;
+        // openHASP does not have a simple version endpoint in every build.
+        // But /json returns system info.
+        try 
+        {
+             var info = await httpClient.GetFromJsonAsync<OpenHaspInfo>($"http://{device.IpAddress}/json");
+             if (info?.Version != null) version = info.Version;
+        }
+        catch { }
 
-        return files;
+        return new DeviceBackupResult(files, version);
     }
+    
+    private class OpenHaspInfo { public string? Version { get; set; } }
 }
