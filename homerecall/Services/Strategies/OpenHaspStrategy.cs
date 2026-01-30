@@ -4,6 +4,30 @@ public class OpenHaspStrategy : IDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.OpenHasp;
 
+    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    {
+        try
+        {
+            var response = await httpClient.GetAsync($"http://{ip}/json");
+            if (response.IsSuccessStatusCode)
+            {
+                 var json = await response.Content.ReadAsStringAsync();
+                 if (json.Contains("\"version\"") && json.Contains("\"model\""))
+                 {
+                     return new DiscoveredDevice 
+                     { 
+                         IpAddress = ip, 
+                         Type = DeviceType.OpenHasp, 
+                         Name = $"OpenHasp-{ip.Split('.').Last()}", 
+                         FirmwareVersion = "Detected" 
+                     };
+                 }
+            }
+        }
+        catch {}
+        return null;
+    }
+
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();

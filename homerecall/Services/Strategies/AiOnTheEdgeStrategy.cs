@@ -4,6 +4,26 @@ public class AiOnTheEdgeStrategy : IDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.AiOnTheEdge;
 
+    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    {
+        try
+        {
+            var response = await httpClient.GetAsync($"http://{ip}/api/version");
+            if (response.IsSuccessStatusCode)
+            {
+                return new DiscoveredDevice 
+                { 
+                    IpAddress = ip, 
+                    Type = DeviceType.AiOnTheEdge, 
+                    Name = $"AiEdge-{ip.Split('.').Last()}", 
+                    FirmwareVersion = "Detected" 
+                };
+            }
+        }
+        catch {}
+        return null;
+    }
+
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();

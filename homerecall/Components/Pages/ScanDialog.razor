@@ -33,19 +33,12 @@
 
                 <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">@L["Scan_DeviceTypes"]</MudText>
                 
-                <MudGrid>
+                <MudChipSet T="DeviceType" AllClosable="false" Filter="true" SelectedValues="_selectedTypes" SelectionMode="SelectionMode.MultiSelection" CheckMark="true">
                     @foreach (var type in _allTypes)
                     {
-                        <MudItem xs="6" sm="4">
-                            <MudCheckBox T="bool" 
-                                         Value="@(_selectedTypes.Contains(type))" 
-                                         ValueChanged="@((bool v) => ToggleType(type, v))"
-                                         Label="@type.ToString()" 
-                                         Dense="true" 
-                                         Color="Color.Primary"/>
-                        </MudItem>
+                        <MudChip Value="@type" Text="@type.ToString()" Color="Color.Primary" Variant="Variant.Outlined" SelectedColor="Color.Primary" />
                     }
-                </MudGrid>
+                </MudChipSet>
             </MudForm>
         }
         else if (_scanRunning)
@@ -53,7 +46,11 @@
             <div class="d-flex flex-column align-center justify-center py-8">
                 <MudProgressCircular Color="Color.Primary" Size="Size.Large" Value="@_progressPercent" Max="100" Class="mb-4" />
                 <MudText>@L["Scan_Running"] (@_progressPercent%)</MudText>
-                <MudText Typo="Typo.caption">Scanning @_startIp - @GetEndIp()...</MudText>
+                @if (_foundCount > 0)
+                {
+                    <MudChip T="string" Color="Color.Success" Variant="Variant.Text" Icon="@Icons.Material.Filled.Check" Class="mt-2">@_foundCount Devices found</MudChip>
+                }
+                <MudText Typo="Typo.caption" Class="mt-2">Scanning @_startIp - @GetEndIp()...</MudText>
             </div>
         }
         else if (_foundDevices != null)
@@ -74,7 +71,9 @@
                         <MudTh>Firmware</MudTh>
                     </HeaderContent>
                     <RowTemplate>
-                        <MudTd DataLabel="IP">@context.IpAddress</MudTd>
+                        <MudTd DataLabel="IP">
+                            <MudLink Href="@($"http://{context.IpAddress}")" Target="_blank" Underline="Underline.Hover">@context.IpAddress</MudLink>
+                        </MudTd>
                         <MudTd DataLabel="Name">
                              <MudTextField @bind-Value="context.Name" Margin="Margin.Dense" />
                         </MudTd>
@@ -107,12 +106,39 @@
     private bool _isValid;
     private bool _scanRunning = false;
     private int _progressPercent = 0;
+    private int _foundCount = 0;
     
     private List<DeviceType> _allTypes = Enum.GetValues(typeof(DeviceType)).Cast<DeviceType>().ToList();
-    private HashSet<DeviceType> _selectedTypes = new(Enum.GetValues(typeof(DeviceType)).Cast<DeviceType>());
+    private IReadOnlyCollection<DeviceType> _selectedTypes = new HashSet<DeviceType>(Enum.GetValues(typeof(DeviceType)).Cast<DeviceType>());
     
     private List<DiscoveredDevice>? _foundDevices;
     private HashSet<DiscoveredDevice> _selectedItems = new();
+
+    // Try to detect local IP on init or load from settings
+    protected override async Task OnInitializedAsync()
+    {
+        var settings = await Context.Settings.FindAsync(1);
+        if (settings != null)
+        {
+            if (!string.IsNullOrEmpty(settings.LastScanIpStart))
+            {
+                _startIp = settings.LastScanIpStart;
+                _endSuffix = settings.LastScanIpEndSuffix;
+            }
+            
+            if (!string.IsNullOrEmpty(settings.LastScanDeviceTypes))
+            {
+                try 
+                {
+                    var types = settings.LastScanDeviceTypes.Split(',')
+                        .Select(t => Enum.Parse<DeviceType>(t))
+                        .ToHashSet();
+                    if (types.Any()) _selectedTypes = types;
+                }
+                catch { /* Ignore parsing errors */ }
+            }
+        }
+    }
 
     private string? ValidateStartIp(string ip)
     {
@@ -136,12 +162,6 @@
         return $"{parts[0]}.{parts[1]}.{parts[2]}.{_endSuffix}";
     }
 
-    private void ToggleType(DeviceType type, bool isChecked)
-    {
-        if (isChecked) _selectedTypes.Add(type);
-        else _selectedTypes.Remove(type);
-    }
-
     private void Reset()
     {
         _foundDevices = null;
@@ -157,13 +177,26 @@
         }
 
         _scanRunning = true;
+        
+        // Save settings for next time
+        var settings = await Context.Settings.FindAsync(1);
+        if (settings != null)
+        {
+            settings.LastScanIpStart = _startIp;
+            settings.LastScanIpEndSuffix = _endSuffix;
+            settings.LastScanDeviceTypes = string.Join(",", _selectedTypes);
+            await Context.SaveChangesAsync();
+        }
+
         _progressPercent = 0;
+        _foundCount = 0;
         StateHasChanged();
         await Task.Delay(50); 
 
-        var progressHandler = new Progress<int>(percent =>
+        var progressHandler = new Progress<ScanProgressReport>(report =>
         {
-            _progressPercent = percent;
+            _progressPercent = report.Percent;
+            _foundCount = report.FoundCount;
             StateHasChanged();
         });
 

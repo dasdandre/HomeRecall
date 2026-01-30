@@ -40,6 +40,11 @@ public class AppSettings
     
     // For "SimpleCount" Mode
     public int MaxCountToKeep { get; set; } = 10;
+
+    // Scan Settings Persistence
+    public string? LastScanIpStart { get; set; }
+    public int LastScanIpEndSuffix { get; set; } = 254;
+    public string? LastScanDeviceTypes { get; set; } // Comma separated enum names
 }
 
 public class Device

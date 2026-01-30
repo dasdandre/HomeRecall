@@ -1,8 +1,31 @@
 namespace HomeRecall.Services;
+using System.Net.Http.Json;
 
 public class WledStrategy : IDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.Wled;
+
+    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    {
+        try
+        {
+            var info = await httpClient.GetFromJsonAsync<WledInfo>($"http://{ip}/json/info");
+            if (info?.Ver != null && info.Leds != null)
+            {
+                string name = !string.IsNullOrWhiteSpace(info.Name) ? info.Name : $"WLED-{ip.Split('.').Last()}";
+                
+                return new DiscoveredDevice 
+                { 
+                    IpAddress = ip, 
+                    Type = DeviceType.Wled, 
+                    Name = name, 
+                    FirmwareVersion = info.Ver 
+                };
+            }
+        }
+        catch {}
+        return null;
+    }
 
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
@@ -29,5 +52,10 @@ public class WledStrategy : IDeviceStrategy
         return new DeviceBackupResult(files, version);
     }
 
-    private class WledInfo { public string? Ver { get; set; } }
+    private class WledInfo 
+    { 
+        public string? Ver { get; set; } 
+        public string? Name { get; set; }
+        public object? Leds { get; set; }
+    }
 }
