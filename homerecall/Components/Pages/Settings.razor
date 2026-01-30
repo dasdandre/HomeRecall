@@ -27,9 +27,8 @@
 
         <MudCollapse Expanded="_settings.AutoBackupEnabled">
             <MudGrid Class="mt-2">
-                <MudItem xs="12" sm="6">
+                                <MudItem xs="12" sm="6">
                     <MudSelect T="int" Label="@L["Settings_BackupInterval"]" @bind-Value="_settings.BackupIntervalHours">
-                        <MudSelectItem Value="1">@L["Settings_Interval_Hourly"]</MudSelectItem>
                         <MudSelectItem Value="12">@L["Settings_Interval_12h"]</MudSelectItem>
                         <MudSelectItem Value="24">@L["Settings_Interval_Daily"]</MudSelectItem>
                         <MudSelectItem Value="168">@L["Settings_Interval_Weekly"]</MudSelectItem>

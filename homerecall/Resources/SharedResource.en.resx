@@ -184,7 +184,7 @@
     <value>Enable Automatic Backups</value>
   </data>
   <data name="Settings_BackupInterval" xml:space="preserve">
-    <value>Check Interval</value>
+    <value>Backup Interval</value>
   </data>
   <data name="Settings_Interval_Hourly" xml:space="preserve">
     <value>Hourly</value>
@@ -220,7 +220,7 @@
     <value>Count to keep</value>
   </data>
   <data name="Settings_Retention_Smart_Info" xml:space="preserve">
-    <value>Smart Strategy keeps: All (24h), 1/Day (7 Days), 1/Week (3 Months). Minimum 5 backups always kept.</value>
+    <value>Smart Strategy keeps: 24h (All), 7 Days (Daily), 4 Weeks (Weekly), 12 Months (Monthly), Years (Yearly). Minimum 5 backups always kept.</value>
   </data>
   <data name="Settings_Saved_Success" xml:space="preserve">
     <value>Settings saved successfully</value>

@@ -64,20 +64,49 @@ public class BackupScheduler : BackgroundService
             var lastBackupTime = device.LastBackup ?? DateTime.MinValue;
             var nextDueTime = lastBackupTime.Add(interval);
 
+            // Progressive Retry Logic
+            // If backup is overdue, check how often we should retry
             if (DateTime.UtcNow >= nextDueTime)
             {
-                _logger.LogInformation($"Auto-Backup triggered for {device.Name} (Last: {lastBackupTime})");
+                // Backup is due. Now check retry policy.
+                var lastAttempt = device.LastAutoBackupAttempt ?? DateTime.MinValue;
+                var timeSinceLastBackup = DateTime.UtcNow - lastBackupTime;
                 
-                try
+                // If offline for > 3 days -> Retry only once per day
+                // Else -> Retry normally (every scheduler tick / 15 mins)
+                TimeSpan retryInterval = timeSinceLastBackup.TotalDays > 3 
+                    ? TimeSpan.FromHours(24) 
+                    : TimeSpan.FromMinutes(15);
+
+                if (DateTime.UtcNow >= lastAttempt.Add(retryInterval))
                 {
-                    await backupService.PerformBackupAsync(device.Id);
+                    _logger.LogInformation($"Auto-Backup triggered for {device.Name} (Last Success: {lastBackupTime}, Last Attempt: {lastAttempt})");
                     
-                    // Cleanup / Retention
-                    await ApplyRetentionPolicy(context, device.Id, settings);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"Auto-Backup failed for {device.Name}");
+                    // Mark attempt time immediately
+                    device.LastAutoBackupAttempt = DateTime.UtcNow;
+                    // We need to save this even if backup fails, to respect retry interval
+                    // But we can save it after the attempt in the catch block or here.
+                    // Saving here means if process crashes, we wait. Saving after means if crash, we retry immediately.
+                    // Let's save after to be safe, but we need a way to persist it.
+                    // Since we are in a loop, we can't easily save just the device without tracking.
+                    // EF Core tracks it. We just need to call SaveChanges at the end or per device.
+                    
+                    try
+                    {
+                        await backupService.PerformBackupAsync(device.Id);
+                        
+                        // Cleanup / Retention
+                        await ApplyRetentionPolicy(context, device.Id, settings);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Auto-Backup failed for {device.Name}");
+                    }
+                    finally 
+                    {
+                         // Save the attempt timestamp
+                         await context.SaveChangesAsync(token);
+                    }
                 }
             }
         }
@@ -123,26 +152,47 @@ public class BackupScheduler : BackgroundService
             foreach (var b in last24h) keepList.Add(b.Id);
 
             // 2. Keep ONE per day for last 7 days
-            // We group by Date, take the LAST one of that day.
+            // Group by Date, take the LAST one of that day.
+            var oneWeekAgo = now.AddDays(-7);
             var last7Days = backups
-                .Where(b => b.CreatedAt < now.AddHours(-24) && b.CreatedAt >= now.AddDays(-7))
+                .Where(b => b.CreatedAt < now.AddHours(-24) && b.CreatedAt >= oneWeekAgo)
                 .GroupBy(b => b.CreatedAt.Date)
                 .Select(g => g.OrderByDescending(x => x.CreatedAt).First())
                 .ToList();
             
             foreach (var b in last7Days) keepList.Add(b.Id);
 
-            // 3. Keep ONE per week for last 3 months (90 days)
+            // 3. Keep ONE per week for last 1 month
             // We group by "Year-Week", take the LAST one.
-            var last90Days = backups
-                .Where(b => b.CreatedAt < now.AddDays(-7) && b.CreatedAt >= now.AddDays(-90))
+            var oneMonthAgo = now.AddMonths(-1);
+            var lastMonth = backups
+                .Where(b => b.CreatedAt < oneWeekAgo && b.CreatedAt >= oneMonthAgo)
                 .GroupBy(b => System.Globalization.ISOWeek.GetWeekOfYear(b.CreatedAt))
                 .Select(g => g.OrderByDescending(x => x.CreatedAt).First())
                 .ToList();
 
-            foreach (var b in last90Days) keepList.Add(b.Id);
+            foreach (var b in lastMonth) keepList.Add(b.Id);
             
-            // 4. Always keep the very last 5 backups regardless of age (Safety net)
+            // 4. Keep ONE per month for last 12 months (1 year)
+            var oneYearAgo = now.AddYears(-1);
+            var lastYear = backups
+                .Where(b => b.CreatedAt < oneMonthAgo && b.CreatedAt >= oneYearAgo)
+                .GroupBy(b => new { b.CreatedAt.Year, b.CreatedAt.Month })
+                .Select(g => g.OrderByDescending(x => x.CreatedAt).First())
+                .ToList();
+
+            foreach (var b in lastYear) keepList.Add(b.Id);
+
+            // 5. Keep ONE per year forever (older than 1 year)
+            var olderYears = backups
+                .Where(b => b.CreatedAt < oneYearAgo)
+                .GroupBy(b => b.CreatedAt.Year)
+                .Select(g => g.OrderByDescending(x => x.CreatedAt).First())
+                .ToList();
+
+            foreach (var b in olderYears) keepList.Add(b.Id);
+
+            // 6. Always keep the very last 5 backups regardless of age (Safety net)
             foreach(var b in backups.Take(5)) keepList.Add(b.Id);
 
             // Calculate deletion list
