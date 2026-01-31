@@ -1,139 +1,79 @@
-# Project Context: HomeRecall
+# HomeRecall Context
 
-## Overview
-HomeRecall is a backup solution for IoT devices (Tasmota, WLED, Shelly) built as an **ASP.NET Core Blazor Server** application. It is designed to run primarily as a **Home Assistant Add-on** behind Ingress, but also supports local execution.
-It features a multi-language UI (German/English) and seamless Home Assistant integration.
+## Project Overview
+HomeRecall is a **.NET 10** Blazor Server application designed to backup configurations and data from various IoT devices commonly used in smart homes. It is specifically optimized to run as a Home Assistant Add-on but can also run standalone via Docker.
 
 ## Tech Stack
-- **Framework:** .NET 10 (Stable/LTS)
-- **UI Framework:** MudBlazor (v8+)
-- **Architecture:** Blazor Server (Interactive Server)
-- **Database:** SQLite (EF Core)
-- **Infrastructure:** Docker (Alpine based), S6 Overlay (via HA Base Image)
-- **Localization:** ASP.NET Core Localization (IStringLocalizer) with Cookie Culture Provider
+- **Framework:** .NET 10 (ASP.NET Core Blazor Server)
+- **UI Library:** MudBlazor
+- **Database:** SQLite (using Entity Framework Core)
+- **Containerization:** Docker
 
-## Critical Architectural Decisions & Fixes
+## Core Architecture
 
-### 1. Home Assistant Ingress Compatibility
-This was the most complex part of the setup. The app runs behind a dynamic path (`/api/hassio_ingress/{token}/`).
+### 1. Device Strategies (`homerecall/Services/Strategies/`)
+The application uses the Strategy pattern (`IDeviceStrategy`) to support multiple device types.
+- **Supported Devices:** Tasmota, WLED, Shelly (Gen1 & Gen2), OpenDTU, AI-on-the-Edge, Awtrix, OpenHASP.
+- **Scanner:** `DeviceScanner` scans the local network (HTTP) to discover compatible devices.
 
-*   **PathBase Middleware:** We manually check the `X-Ingress-Path` header in `Program.cs` and set `context.Request.PathBase`.
-    *   *Rule:* This Middleware MUST be registered **before** `app.UseStaticFiles()`.
-*   **Static Files:** `app.UseStaticFiles()` strips the PathBase to find files in `wwwroot`. If the middleware order is wrong, CSS/JS will return 404.
-*   **Blazor Base URI:** `NavigationManager.BaseUri` is unreliable behind proxies/ingress.
-    *   *Solution:* We inject `IHttpContextAccessor` into `App.razor` and manually set `<base href="..." />` using the `X-Ingress-Path` header.
+### 2. Backup Strategy
+The `BackupService` implements a robust, deduplicating backup process:
 
-### 2. Theming & Styling
-*   **Library:** MudBlazor.
-*   **Integration:** The app mimics Home Assistant's theme.
-*   **Mechanism:** `wwwroot/js/ha-theme.js` accesses `window.parent` (the HA frontend) to read CSS variables (e.g., `--primary-color`).
-*   **Reactivity:** A `MutationObserver` in JS detects Dark Mode switches in HA and notifies `MainLayout.razor` via JS Interop to update the `MudTheme` dynamically.
+1.  **Extraction:**
+    - The appropriate `IDeviceStrategy` fetches configuration files via HTTP (30s timeout).
+    - Returns a list of `BackupFile` objects (filename + byte content).
 
-### 3. Localization (Multi-language Support)
-*   **Strategy:** Standard ASP.NET Core `IStringLocalizer`.
-*   **Resources:** `SharedResource.en.resx` (English) and `SharedResource.de.resx` (German) located in `homerecall/Resources`.
-*   **Switching:** 
-    *   A `CultureController` handles setting the `AspNetCore.Culture` cookie.
-    *   Users can select language in Settings (Auto/EN/DE).
-    *   "Auto" mode respects the browser's language settings.
-*   **Constraint:** German translation avoids English technical terms (except "Backup" and "Download").
+2.  **Determinism:**
+    - Files are sorted alphabetically by name.
+    - ZIP entries use a fixed timestamp (`2000-01-01`) to ensure binary reproducibility.
 
-### 4. Blazor Interactivity
-*   **Mode:** `InteractiveServerRenderMode(prerender: false)`.
-*   **Reason:** Prerendering caused issues with the Router resolving parameters and with timing of JS Interop for the theming.
-*   **Configuration:** Applied in `App.razor` to `<Routes>` and `<HeadOutlet>`.
+3.  **Deduplication (Content-Addressable-ish):**
+    - A **SHA1 Checksum** is calculated based on the *raw concatenated content* of the config files (not the ZIP container).
+    - This hash is compared against the *immediately preceding* backup for the same device.
+    - **Match:** If the hash matches, the **existing file path** is reused. No new file is written to disk (unless the physical file is missing). A new DB entry is created pointing to the old file.
+    - **No Match:** If content differs, a new ZIP file is created and saved.
 
-### 5. Docker & S6 Overlay
-*   **Base Image:** Standard Microsoft SDK for build, but HA Base Image (Alpine) for runtime.
-*   **Runtime:** We install ASP.NET Core Runtime manually via `dotnet-install.sh` in the Dockerfile because Alpine repos often lag behind.
-*   **Startup:** We use a `run.sh` script (`CMD ["/run.sh"]`) to be compatible with the S6 Overlay init system used by Home Assistant. Direct `dotnet` entrypoints fail with PID 1 errors.
+4.  **Storage:**
+    - **Naming Convention:** `YYYY-MM-DD_HH-mm-ss_{DeviceName}_{DeviceType}_{ShortHash}.zip`
+    - **Location:** determined by `backup_path` environment variable (default: `./backups`).
+    - **Database:** Stores metadata (DeviceID, Timestamp, Checksum, StoragePath, LockedStatus, Note).
 
-### 6. Backup Strategy Pattern
-*   **Problem:** The `BackupService` became a monolith with many `if/else` blocks for different device types.
-*   **Solution:** Refactored into a Strategy Pattern (`IDeviceStrategy`).
-*   **Implementation:** 
-    *   Each device type (Tasmota, WLED, Shelly, etc.) has its own class in `Services/Strategies`.
-    *   `BackupService` simply iterates through injected strategies to find the right one.
-    *   **Deduplication:** 
-        *   Logic: If the *content* hash matches the *last* backup of the same device, the existing file on disk is reused.
-        *   Naming: Files are named `YYYY-MM-DD_Name_Type_Hash.zip`.
-        *   UI: A visual indicator shows if content has changed compared to the previous backup.
+5.  **Retention Policy:**
+    - Controlled by `BackupScheduler` (Hosted Service).
+    - Policies: Smart (thinning), Simple Days, Simple Count, or Keep All.
+    - **Locked Backups:** Backups marked as "Locked" are never automatically deleted.
 
-### 7. Automatic Backups & Retention
-*   **Mechanism:** `BackupScheduler` (Background Service) checks every 15 minutes.
-*   **Settings:** Stored in DB table `AppSettings` (singleton).
-*   **Deduplication:** Uses the Hash-based deduplication of `BackupService`.
-*   **Retention Strategy (GFS):**
-    *   **Smart (Default):**
-        *   **24h:** Keep all backups (Detail).
-        *   **7 Days:** Keep 1 per day.
-        *   **1 Month:** Keep 1 per week.
-        *   **1 Year:** Keep 1 per month.
-        *   **> 1 Year:** Keep 1 per year (Archival).
-    *   **Fallback:** Always keeps at least 5 backups.
-    *   **Override:** Locked backups are never deleted.
-*   **Database Migration:** Switched from `EnsureCreated()` to `Migrate()` to support schema evolution.
+### 3. Home Assistant Integration (Ingress)
+This is a critical aspect of the application configuration.
+- **Path Base:** Home Assistant Ingress serves the app under a dynamic sub-path.
+  - **Middleware:** `Program.cs` reads the `X-Ingress-Path` header to set `context.Request.PathBase`.
+  - **Blazor Base:** `App.razor` dynamically calculates the `<base href="..." />` tag using the `X-Ingress-Path` header or falls back to `NavigationManager.BaseUri`.
+  - **Navigation:** Links must be relative or correctly resolved. `NavigationManager.NavigateTo` generally handles relative paths well, but explicit URI construction (like for Breadcrumbs) must use `NavigationManager.ToAbsoluteUri()`.
+- **Theming:**
+  - `MainLayout.razor` uses JS Interop (`wwwroot/js/ha-theme.js`) to read Home Assistant's current colors and dark/light mode, applying them to the MudBlazor theme dynamically.
 
-### 8. Device Discovery (Network Scanner)
-*   **Mechanism:** `DeviceScanner` service scans IP ranges in parallel using `Parallel.ForEachAsync`.
-*   **UI:** `ScanDialog` allows users to define IP range (Start IP + End Suffix) and device types.
-*   **Identification:** Probes specific HTTP endpoints (fingerprinting) to identify Tasmota, Shelly, WLED, etc.
-*   **Feedback:** Real-time progress reporting via `IProgress<int>`.
+## Key Files & Directories
+- `homerecall/`
+  - `Program.cs`: App entry point, Service registration, Middleware config (Ingress).
+  - `Components/`
+    - `App.razor`: Root component, handles `<base href>` logic.
+    - `Layout/MainLayout.razor`: Global layout, Theme sync logic.
+    - `Pages/`:
+      - `Home.razor`: Dashboard, Device list.
+      - `Backups.razor`: Backup history for a specific device.
+      - `Settings.razor`: Global settings.
+  - `Services/`:
+    - `BackupService.cs`: Core logic described above.
+    - `Strategies/`: Device specific implementations.
+  - `Data.cs` / `Models.cs`: EF Core DbContext and Entities (`Device`, `Backup`, `AppSettings`).
+  - `Controllers/`: API endpoints (e.g., for file downloads).
 
-## Directory Structure
-*   `homerecall/Components/Pages`: Blazor pages (Home, Backups).
-*   `homerecall/Components/Layout`: MainLayout (AppBar, Theming Logic).
-*   `homerecall/Resources`: Resx files for translations.
-*   `homerecall/Services/Strategies`: Device specific backup implementations.
-*   `homerecall/wwwroot`: Static assets (JS for theming, custom CSS).
-*   `homerecall/data`: SQLite DB location (mapped to `/config` or `./data`).
-*   `homerecall/backups`: Backup storage (mapped to `/backup` or `./backups`).
+## Configuration
+- **Environment Variables:**
+  - `persist_path`: Directory for SQLite DB (default: `./data`).
+  - `backup_path`: Directory for backup files (default: `./backups`).
+- **Data Storage:**
+  - Docker volumes should map to `/app/data` and `/app/backups`.
 
-## Development
-*   **Local Run:** `dotnet watch run` works thanks to `Properties/launchSettings.json`, which simulates the environment variables (`persist_path`, `backup_path`) and sets `ASPNETCORE_ENVIRONMENT=Development`. Local run uses default HA colors as fallback.
-
-## Important Code Snippets (Do not regress)
-
-**Program.cs (Middleware Order):**
-```csharp
-// 1. PathBase Handling (First!)
-app.Use(async (context, next) => {
-    if (context.Request.Headers.TryGetValue("X-Ingress-Path", out var ingressPath)) {
-        context.Request.PathBase = new PathString(ingressPath);
-    }
-    await next();
-});
-
-// 2. Static Files (After PathBase!)
-app.UseStaticFiles();
-
-// 3. Localization
-var supportedCultures = new[] { "en", "de" };
-var localizationOptions = new RequestLocalizationOptions()
-    .SetDefaultCulture("en")
-    .AddSupportedCultures(supportedCultures)
-    .AddSupportedUICultures(supportedCultures);
-app.UseRequestLocalization(localizationOptions);
-
-// 4. Routing & Antiforgery
-app.UseRouting();
-app.UseAntiforgery();
-app.MapControllers(); // For Download Controller and Culture Controller
-app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
-```
-
-**App.razor (Base Href):**
-```razor
-@{
-    var baseHref = "/";
-    if (HttpContextAccessor.HttpContext?.Request.Headers.TryGetValue("X-Ingress-Path", out var ingressPath) == true)
-    {
-        baseHref = ingressPath.ToString().TrimEnd('/') + "/";
-    }
-    else 
-    {
-         baseHref = NavigationManager.BaseUri;
-    }
-}
-<base href="@baseHref" />
-```
+## Recent Focus
+- **Breadcrumb Navigation:** Fixed absolute path generation for Breadcrumbs to work correctly with Home Assistant Ingress using `NavigationManager.ToAbsoluteUri`.

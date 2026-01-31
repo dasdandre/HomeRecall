@@ -1,152 +1,97 @@
 # HomeRecall AI Coding Guidelines
 
 ## Architecture Overview
-HomeRecall is a **Blazor Server web app** for backing up IoT device configurations (Tasmota, WLED, Shelly). Built with .NET 10, it combines SQLite metadata storage with SHA1-based file deduplication and runs as a **Home Assistant add-on** with Ingress proxy support.
+HomeRecall is a **Blazor Server web app** for backing up IoT device configurations (Tasmota, WLED, Shelly, OpenDTU, etc.). Built with **.NET 10**, it combines SQLite metadata storage with SHA1-based file deduplication and runs as a **Home Assistant add-on** with Ingress proxy support.
 
-**Core Data Flow**: User triggers backup → `BackupService` fetches config from device (HTTP) → Creates ZIP in memory → Computes SHA1 checksum → Checks for duplicates → Stores to disk (deduplicated) → Records metadata in DB (Device/Backup tables).
+**Core Data Flow**: User triggers backup → `BackupService` delegates to specific `IDeviceStrategy` → Strategy fetches config (HTTP) → Service creates ZIP in memory (deterministic timestamp) → Computes SHA1 checksum of raw content → Checks for duplicates (content-based) → Stores to disk (if new) → Records metadata in DB.
 
 **Key Design Decisions**:
-- **Storage Deduplication**: Multiple backups of the same config share a single `.zip` file on disk (identified by SHA1). DB tracks each backup event separately (CreatedAt, Note) but references the same `StoragePath`.
-- **Home Assistant Integration**: Runs behind Ingress reverse proxy; PathBase set via `X-Ingress-Path` header (see `Program.cs` middleware). Data stored in `/config` (DB) and `/backup` (ZIP files) per HA volume mounts.
-- **Stateless Services**: `BackupService` is scoped and injectable; no background services (yet). Backups triggered via UI buttons.
+- **Strategy Pattern**: Each device type (Tasmota, WLED, Shelly, etc.) has its own `IDeviceStrategy` implementation in `Services/Strategies/`.
+- **Content-Based Deduplication**: Deduplication is based on the hash of the *configuration content*, not the ZIP file. If the content is identical to the previous backup, the *existing file path* is reused in the database, and no new file is written.
+- **Home Assistant Integration**: Runs behind Ingress reverse proxy; PathBase set via `X-Ingress-Path` header. Themes are synced from HA via JS Interop.
+- **Hosted Services**: `BackupScheduler` runs in the background for automated backups based on retention policies.
 
 ## Directory Structure & Key Files
 ```
 homerecall/
-  Program.cs              # Blazor Server setup, EF Core, Ingress middleware
-  Data.cs                 # BackupContext (DbSet<Device>, DbSet<Backup>)
-  Models.cs               # Device, Backup entities; DeviceType enum
+  Program.cs              # Entry point, Service DI, Middleware (Ingress), EF Migration
+  Data.cs                 # BackupContext
+  Models.cs               # Device, Backup, AppSettings entities
   Services/
-    BackupService.cs      # Core: HTTP download, ZIP creation, SHA1, deduplication
+    BackupService.cs      # Core orchestration: ZIP creation, Deduplication, Storage
+    IDeviceStrategy.cs    # Interface for device strategies
+    Strategies/           # Implementations: TasmotaStrategy.cs, WledStrategy.cs, etc.
+    BackupScheduler.cs    # Background service for auto-backups and retention
+    DeviceScanner.cs      # Network scanner for discovery
   Components/
     Pages/
-      Home.razor          # Device list (MudTable), backup triggers
-      Backups.razor       # Backup history for a device
-      AddDeviceDialog.razor  # CRUD dialogs
-      RenameDeviceDialog.razor
+      Home.razor          # Dashboard, Device list
+      Backups.razor       # Backup history (Breadcrumbs used here)
+      Settings.razor      # Global settings (Retention, Auto-Backup)
     Layout/
-      MainLayout.razor    # Navigation, HA theme sync
+      MainLayout.razor    # Theme logic, Navigation
   Controllers/
-    DownloadBackupController.cs  # Serve .zip files from disk
+    DownloadBackupController.cs  # File download endpoint
 ```
 
 ## Critical Patterns & Code Examples
 
-### Database Operations
-Always eager-load related entities to avoid N+1 queries:
+### Backup & Deduplication Logic (`BackupService.cs`)
 ```csharp
-// Good: Include Backups when fetching Device
-var device = await _context.Devices.Include(d => d.Backups).FirstAsync();
+// 1. Fetch data via Strategy
+var result = await strategy.BackupAsync(device, httpClient);
 
-// In Home.razor: Load all devices with backups
-var _devices = await Context.Devices.Include(d => d.Backups).ToListAsync();
-```
-Cascade delete is configured: removing a Device deletes all its Backups.
+// 2. Deterministic ZIP Creation
+// - Sort files alphabetically
+// - Use fixed timestamp (2000-01-01) for ZipArchiveEntries
 
-### Device-Specific API Endpoints
-In `BackupService.PerformBackupAsync()`, switch on `DeviceType` enum:
-- **Tasmota**: `http://{ip}/dl` → downloads `Config.dmp`
-- **WLED**: `http://{ip}/edit?download=cfg.json` → downloads `cfg.json`
-- **Shelly**: `http://{ip}/settings` → downloads JSON (Gen1; Gen2 needs RPC calls)
+// 3. Content Hash Calculation
+// - Hash raw file contents (not the ZIP container)
+string checksum = CalculateContentHash(sortedFiles);
 
-Each device type needs unique implementation; HTTP timeout is 10 seconds.
-
-### SHA1 Deduplication Logic
-```csharp
-// Check if last backup has same checksum (device-level dedup)
-var lastBackup = await _context.Backups
-    .Where(b => b.DeviceId == device.Id)
-    .OrderByDescending(b => b.CreatedAt)
-    .FirstOrDefaultAsync();
-bool isDuplicate = lastBackup?.Sha1Checksum == checksum;
-
-// Check if file exists on disk (global dedup)
-string storageFileName = $"{checksum}.zip";
-if (!File.Exists(storagePath)) {
-    await File.WriteAllBytesAsync(storagePath, zipBytes);
+// 4. Check Previous Backup
+var lastBackup = await _context.Backups...FirstOrDefaultAsync();
+if (lastBackup != null && lastBackup.Sha1Checksum == checksum) {
+    // REUSE existing file path
+    storageFileName = lastBackup.StoragePath;
+} else {
+    // CREATE new file
+    storageFileName = $"{Date}_{Name}_{Type}_{Hash}.zip";
+    await File.WriteAllBytesAsync(path, zipBytes);
 }
 
-// Always create DB record (even for duplicates) to track history
-var backup = new Backup { DeviceId, CreatedAt, Sha1Checksum, StoragePath };
-_context.Backups.Add(backup);
+// 5. Always Create DB Entry
+_context.Backups.Add(new Backup { ... StoragePath = storageFileName ... });
 ```
-**Critical**: DB entry is created **regardless** of deduplication (for history tracking), but ZIP file is only written if it doesn't already exist on disk.
 
-### MudBlazor UI Components
-- **MudTable**: Device list in `Home.razor` with clickable rows, pagination, sorting
-- **MudDialog**: Device CRUD via `AddDeviceDialog.razor`, `RenameDeviceDialog.razor`
-- **MudButton**: Backup, view history, delete actions (use `Variant.Outlined`, `Color.Primary`)
-- **MudSnackbar**: User notifications (inject `ISnackbar`); no modal alerts—use `Snackbar.Add(message, Severity.Success)`
+### Device Strategies (`IDeviceStrategy`)
+To add a new device:
+1. Create `NewDeviceStrategy.cs` implementing `IDeviceStrategy`.
+2. Register in `Program.cs`: `builder.Services.AddScoped<IDeviceStrategy, NewDeviceStrategy>();`.
+3. Add enum value to `DeviceType` in `Models.cs`.
 
-### Home Assistant Integration
-**Environment Variables** (read in `Program.cs` and `BackupService` constructor):
-- `persist_path` → SQLite DB location (default: `./data`)
-- `backup_path` → ZIP storage location (default: `./backups`)
+### Ingress & Navigation
+- **PathBase**: Handled in `Program.cs` via `X-Ingress-Path`.
+- **Links**: Use `NavigationManager`.
+- **Absolute URIs**: For components requiring absolute URLs (like `MudBreadcrumbs`), use `NavigationManager.ToAbsoluteUri(...)` to correctly respect the Ingress base path.
 
-**Ingress Middleware** (Program.cs):
 ```csharp
-app.Use(async (context, next) => {
-    if (context.Request.Headers.TryGetValue("X-Ingress-Path", out var ingressPath)) {
-        context.Request.PathBase = new PathString(ingressPath);
-    }
-    await next();
-});
+// Correct Breadcrumb Usage
+new BreadcrumbItem(L["Nav_Devices"], href: NavigationManager.ToAbsoluteUri("").ToString()),
 ```
-Always verify routing works behind a path prefix (e.g., `/addons/homerecall/`).
 
-### Error Handling & Logging
-- **Services**: Use `ILogger<T>` for structured logging (already injected in `BackupService`)
-- **UI**: Use `ISnackbar.Add(message, Severity.Error)` for user-facing errors
-- **HTTP Errors**: `DownloadFileAsync()` throws `HttpRequestException`; catch in `PerformBackupAsync()` and log, don't propagate
-- **File I/O**: Ensure `backup_path` directory exists; handle disk full gracefully
+### Database & Migrations
+- **SQLite**: Data stored in `persist_path` (default `./data`).
+- **Migrations**: `dotnet ef migrations add Name`.
+- **Auto-Migrate**: `db.Database.Migrate()` is called in `Program.cs` on startup.
 
 ## Development Workflows
+- **Run Local**: `dotnet watch run` (uses `./data` and `./backups`).
+- **Docker**: Dockerfile provided for multi-arch builds.
+- **Home Assistant**: Deploy as Add-on. `config.yaml` and `build.yaml` configure the addon.
 
-### Local Development
-```bash
-cd homerecall
-dotnet watch run
-```
-- Launches on `http://localhost:5000` with Blazor hot reload
-- Uses `./data` and `./backups` local directories
-- `launchSettings.json` can mock Home Assistant paths if needed
-
-### Build & Publish
-```bash
-# Release build for Docker
-dotnet publish -c Release -o ./publish
-
-# Or direct Docker build (multi-stage: SDK → Alpine runtime)
-docker build -t homerecall .
-```
-
-### Docker Container (Local Testing)
-```bash
-docker run -d \
-  -p 5000:8080 \
-  -v $(pwd)/data:/config \
-  -v $(pwd)/backups:/backup \
-  homerecall
-```
-Container uses Alpine Linux + .NET 10 runtime. Entry point is `dotnet homerecall.dll` on port 8080 (mapped to 5000).
-
-### Home Assistant Add-on Deployment
-1. Update version in `config.yaml`
-2. Push to GitHub repo
-3. HA Addon system auto-detects via `build.yaml` and builds multi-arch (aarch64, amd64, armhf, armv7)
-4. Addon installs via HA UI; Ingress automatically proxies to port 8080 behind `/addons/homerecall/`
-
-## Conventions & Style
-- **Namespace**: `HomeRecall` (matches assembly)
-- **Async/Await**: Used throughout (HTTP, DB, file I/O)
-- **UI Language**: German (keep consistent: "Geräte", "Neues Gerät", "Backup", etc.)
-- **Null Safety**: Enabled (`<Nullable>enable</Nullable>`); use `!` suppression only when certain
-- **Entity Relationships**: One-to-many (Device → Backups); configure in `BackupContext.OnModelCreating()`
-- **File Naming**: Device config ZIPs named by SHA1 checksum: `abc123def456....zip`
-
-## Common Tasks
-- **Add device type**: Extend `DeviceType` enum, add case in `BackupService.PerformBackupAsync()`
-- **Add UI page**: Create `.razor` file in `Components/Pages/`, add `@page` route, inject `BackupContext` and services
-- **Add database field**: Modify model class, run `dotnet ef migrations add <name>`, apply with `db.Database.Migrate()`
-- **Test backup logic**: Use mock device IP in local network; check `./backups/` for `.zip` files and `./data/homerecall.db` for Backup records</content>
-<parameter name="filePath">c:\Users\fabri\Documents\HomeRecall\.github\copilot-instructions.md
+## Conventions
+- **Language**: UI supports EN/DE via `IStringLocalizer`.
+- **UI Lib**: MudBlazor.
+- **Async**: All I/O operations must be async.
+- **Logging**: Use injected `ILogger`.

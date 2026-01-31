@@ -121,7 +121,7 @@ else
 
         _breadcrumbs = new List<BreadcrumbItem>
         {
-            new BreadcrumbItem(L["Nav_Devices"], href: "/"),
+            new BreadcrumbItem(L["Nav_Devices"], href: NavigationManager.ToAbsoluteUri("").ToString()),
             new BreadcrumbItem(L["Common_Backups"], href: null, disabled: true)
         };
     }

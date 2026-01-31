@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 namespace HomeRecall.Services;
 
 public class AiOnTheEdgeStrategy : IDeviceStrategy
@@ -8,17 +9,49 @@ public class AiOnTheEdgeStrategy : IDeviceStrategy
     {
         try
         {
-            var response = await httpClient.GetAsync($"http://{ip}/api/version");
-            if (response.IsSuccessStatusCode)
+            // Prefer checking the device's public config which is a stronger indicator
+            try
             {
-                return new DiscoveredDevice 
-                { 
-                    IpAddress = ip, 
-                    Type = DeviceType.AiOnTheEdge, 
-                    Name = $"AiEdge-{ip.Split('.').Last()}", 
-                    FirmwareVersion = "Detected" 
-                };
+                var cfgResp = await httpClient.GetAsync($"http://{ip}/fileserver/config/config.ini");
+                if (cfgResp.IsSuccessStatusCode)
+                {
+                    return new DiscoveredDevice
+                    {
+                        IpAddress = ip,
+                        Type = DeviceType.AiOnTheEdge,
+                        Name = $"AiEdge-{ip.Split('.').Last()}",
+                        FirmwareVersion = "Detected"
+                    };
+                }
             }
+            catch { }
+
+            // Fallback: validate /api/version content instead of accepting any 2xx
+            try
+            {
+                var verResp = await httpClient.GetAsync($"http://{ip}/api/version");
+                if (verResp.IsSuccessStatusCode)
+                {
+                    var content = await verResp.Content.ReadAsStringAsync();
+                    if (!string.IsNullOrWhiteSpace(content))
+                    {
+                        // Look for explicit markers or the full project name
+                        if (Regex.IsMatch(content, @"\bai-?on-?the-?edge\b", RegexOptions.IgnoreCase) ||
+                            content.Contains("AiOnTheEdge", StringComparison.OrdinalIgnoreCase) ||
+                            content.Contains("AiEdge", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return new DiscoveredDevice
+                            {
+                                IpAddress = ip,
+                                Type = DeviceType.AiOnTheEdge,
+                                Name = $"AiEdge-{ip.Split('.').Last()}",
+                                FirmwareVersion = content.Trim()
+                            };
+                        }
+                    }
+                }
+            }
+            catch { }
         }
         catch {}
         return null;
