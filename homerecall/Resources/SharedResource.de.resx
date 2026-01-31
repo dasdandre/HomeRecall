@@ -276,4 +276,7 @@
   <data name="Scan_Range_Preview" xml:space="preserve">
     <value>Bereich</value>
   </data>
+  <data name="Scan_Summary" xml:space="preserve">
+    <value>Scanne {0} IPs ({1} übersprungen)</value>
+  </data>
 </root>

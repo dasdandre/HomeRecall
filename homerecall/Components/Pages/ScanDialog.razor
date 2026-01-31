@@ -33,7 +33,7 @@
 
                 <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">@L["Scan_DeviceTypes"]</MudText>
                 
-                <MudChipSet T="DeviceType" AllClosable="false" Filter="true" SelectedValues="_selectedTypes" SelectionMode="SelectionMode.MultiSelection" CheckMark="true">
+                <MudChipSet T="DeviceType" AllClosable="false" Filter="true" SelectedValues="_selectedTypes" SelectedValuesChanged="OnSelectedValuesChanged" SelectionMode="SelectionMode.MultiSelection" CheckMark="true">
                     @foreach (var type in _allTypes)
                     {
                         <MudChip Value="@type" Text="@type.ToString()" Color="Color.Primary" Variant="Variant.Outlined" SelectedColor="Color.Primary" />
@@ -46,6 +46,7 @@
             <div class="d-flex flex-column align-center justify-center py-8">
                 <MudProgressCircular Color="Color.Primary" Size="Size.Large" Value="@_progressPercent" Max="100" Class="mb-4" />
                 <MudText>@L["Scan_Running"] (@_progressPercent%)</MudText>
+                <MudText Typo="Typo.caption" Class="mt-1">@L["Scan_Summary", _plannedScanCount, _skippedCount]</MudText>
                 @if (_foundCount > 0)
                 {
                     <MudChip T="string" Color="Color.Success" Variant="Variant.Text" Icon="@Icons.Material.Filled.Check" Class="mt-2">@_foundCount Devices found</MudChip>
@@ -107,9 +108,11 @@
     private bool _scanRunning = false;
     private int _progressPercent = 0;
     private int _foundCount = 0;
+    private int _plannedScanCount = 0;
+    private int _skippedCount = 0;
     
     private List<DeviceType> _allTypes = Enum.GetValues(typeof(DeviceType)).Cast<DeviceType>().ToList();
-    private IReadOnlyCollection<DeviceType> _selectedTypes = new HashSet<DeviceType>(Enum.GetValues(typeof(DeviceType)).Cast<DeviceType>());
+    private List<DeviceType> _selectedTypes = Enum.GetValues(typeof(DeviceType)).Cast<DeviceType>().ToList();
     
     private List<DiscoveredDevice>? _foundDevices;
     private HashSet<DiscoveredDevice> _selectedItems = new();
@@ -132,7 +135,7 @@
                 {
                     var types = settings.LastScanDeviceTypes.Split(',')
                         .Select(t => Enum.Parse<DeviceType>(t))
-                        .ToHashSet();
+                        .ToList();
                     if (types.Any()) _selectedTypes = types;
                 }
                 catch { /* Ignore parsing errors */ }
@@ -203,12 +206,17 @@
         try
         {
             string endIp = GetEndIp();
-            
-            var results = await Scanner.ScanNetworkAsync(_startIp, endIp, _selectedTypes.ToList(), progressHandler);
-            
+
             var knownIps = await Context.Devices.Select(d => d.IpAddress).ToListAsync();
+
+            var (planned, skipped) = CalculatePlannedAndSkippedCount(_startIp, endIp, knownIps);
+            _plannedScanCount = planned;
+            _skippedCount = skipped;
+
+            var results = await Scanner.ScanNetworkAsync(_startIp, endIp, _selectedTypes.ToList(), progressHandler, knownIps);
+
             _foundDevices = results.Where(d => !knownIps.Contains(d.IpAddress)).ToList();
-            
+
             _selectedItems = new HashSet<DiscoveredDevice>(_foundDevices);
         }
         catch (Exception ex)
@@ -220,6 +228,50 @@
         {
             _scanRunning = false;
         }
+    }
+
+    private Task OnSelectedValuesChanged(IEnumerable<DeviceType> values)
+    {
+        _selectedTypes = values?.ToList() ?? new List<DeviceType>();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private (int planned, int skipped) CalculatePlannedAndSkippedCount(string startIp, string endIp, IEnumerable<string>? knownIps)
+    {
+        if (!System.Net.IPAddress.TryParse(startIp, out var ipStart) || !System.Net.IPAddress.TryParse(endIp, out var ipEnd))
+            return (0, 0);
+
+        byte[] startBytes = ipStart.GetAddressBytes();
+        byte[] endBytes = ipEnd.GetAddressBytes();
+        if (BitConverter.IsLittleEndian)
+        {
+            Array.Reverse(startBytes);
+            Array.Reverse(endBytes);
+        }
+
+        uint startVal = BitConverter.ToUInt32(startBytes, 0);
+        uint endVal = BitConverter.ToUInt32(endBytes, 0);
+        if (endVal < startVal) return (0, 0);
+
+        // Safety cap used in scanner: limit range to 513 addresses
+        if (endVal - startVal > 512) endVal = startVal + 512;
+
+        int total = (int)(endVal - startVal + 1);
+        int skipped = 0;
+        if (knownIps != null)
+        {
+            var knownSet = new HashSet<string>(knownIps);
+            for (uint i = startVal; i <= endVal; i++)
+            {
+                byte[] bytes = BitConverter.GetBytes(i);
+                if (BitConverter.IsLittleEndian) Array.Reverse(bytes);
+                var ip = new System.Net.IPAddress(bytes).ToString();
+                if (knownSet.Contains(ip)) skipped++;
+            }
+        }
+
+        return (total - skipped, skipped);
     }
 
     private async Task AddSelected()

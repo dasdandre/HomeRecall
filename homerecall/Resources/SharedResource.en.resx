@@ -276,4 +276,7 @@
   <data name="Scan_Range_Preview" xml:space="preserve">
     <value>Range</value>
   </data>
+  <data name="Scan_Summary" xml:space="preserve">
+    <value>Scanning {0} IPs ({1} skipped)</value>
+  </data>
 </root>

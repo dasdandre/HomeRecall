@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Linq;
 
 namespace HomeRecall.Services;
 
@@ -19,14 +20,24 @@ public class DeviceScanner : IDeviceScanner
         _strategies = strategies;
     }
 
-    public async Task<List<DiscoveredDevice>> ScanNetworkAsync(string startIp, string endIp, List<DeviceType> typesToScan, IProgress<ScanProgressReport>? progress = null)
+    public async Task<List<DiscoveredDevice>> ScanNetworkAsync(string startIp, string endIp, List<DeviceType> typesToScan, IProgress<ScanProgressReport>? progress = null, IEnumerable<string>? knownIps = null)
     {
         var ipsToScan = GenerateIpsFromRange(startIp, endIp);
+        var knownSet = knownIps != null ? new HashSet<string>(knownIps) : null;
+
+        // Remove already-known IPs up-front to simplify scanning logic and progress calculation
+        if (knownSet != null && knownSet.Count > 0)
+        {
+            ipsToScan = ipsToScan.Where(ip => !knownSet.Contains(ip)).ToList();
+        }
+
+        _logger.LogInformation("Starting network scan from {StartIp} to {EndIp} for types {Types} (knownIps={KnownCount}, ipsToScan={IpCount})", startIp, endIp, string.Join(',', typesToScan.Select(t => t.ToString())), knownSet?.Count ?? 0, ipsToScan.Count);
         var foundDevices = new System.Collections.Concurrent.ConcurrentBag<DiscoveredDevice>();
 
         // Parallelism
         var options = new ParallelOptions { MaxDegreeOfParallelism = 20 };
         int processedCount = 0;
+        // Use total = all ips to avoid progress > 100% when skipping known IPs
         int total = ipsToScan.Count;
         
         await Parallel.ForEachAsync(ipsToScan, options, async (ip, token) =>
@@ -39,11 +50,12 @@ public class DeviceScanner : IDeviceScanner
                  if (typesToScan.Contains(strategy.SupportedType))
                  {
                      var device = await strategy.ProbeAsync(ip, client);
-                     if (device != null)
-                     {
-                         foundDevices.Add(device);
-                         break; // Found matching type, move to next IP
-                     }
+                    if (device != null)
+                    {
+                        _logger.LogInformation("Found device {Type} at {Ip} ({Name})", device.Type, device.IpAddress, device.Name);
+                        foundDevices.Add(device);
+                        break; // Found matching type, move to next IP
+                    }
                  }
              }
              
@@ -58,6 +70,7 @@ public class DeviceScanner : IDeviceScanner
              }
         });
 
+        _logger.LogInformation("Scan completed: {FoundCount} devices found", foundDevices.Count);
         return foundDevices.ToList();
     }
 
