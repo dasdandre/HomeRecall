@@ -81,14 +81,16 @@ else
                                Variant="Variant.Text"/>
             </MudTd>
             <MudTd DataLabel="@L["Backups_Locked"]">
-                <MudToggleIconButton Toggled="@context.IsLocked"
-                                     ToggledChanged="@((bool b) => ToggleLock(context))"
-                                     Icon="@Icons.Material.Outlined.LockOpen"
-                                     Color="@Color.Default"
-                                     ToggledIcon="@Icons.Material.Filled.Lock"
-                                     ToggledColor="@Color.Warning"
-                                     Title="@L["Backups_Locked"]"
-                                     ToggledTitle="@L["Backups_Locked"]" />
+                <MudTooltip Text="@L["Backups_Locked"]">
+                    <div>
+                        <MudToggleIconButton Toggled="@context.IsLocked"
+                                             ToggledChanged="@((bool b) => ToggleLock(context))"
+                                             Icon="@Icons.Material.Outlined.LockOpen"
+                                             Color="@Color.Default"
+                                             ToggledIcon="@Icons.Material.Filled.Lock"
+                                             ToggledColor="@Color.Warning" />
+                    </div>
+                </MudTooltip>
             </MudTd>
             <MudTd DataLabel="@L["Devices_Table_Actions"]" Style="text-align:right">
                 <MudIconButton Icon="@Icons.Material.Filled.Download"

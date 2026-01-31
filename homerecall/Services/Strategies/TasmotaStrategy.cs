@@ -13,24 +13,57 @@ public class TasmotaStrategy : IDeviceStrategy
             var status2 = await httpClient.GetFromJsonAsync<TasmotaStatus2>($"http://{ip}/cm?cmnd=Status 2");
             if (status2?.StatusFWR?.Version != null)
             {
-                string name = $"Tasmota-{ip.Split('.').Last()}";
-                
-                // Try to get Friendly Name (Status 0 or Status)
-                // This is a heavier payload, so we do it only if Status 2 succeeded
-                try 
-                {
-                    var status = await httpClient.GetFromJsonAsync<TasmotaStatusMain>($"http://{ip}/cm?cmnd=Status");
-                    if (status?.Status?.DeviceName != null) name = status.Status.DeviceName;
-                    else if (status?.Status?.FriendlyName != null && status.Status.FriendlyName.Count > 0) name = status.Status.FriendlyName[0];
-                }
-                catch {}
+                string defaultName = $"Tasmota-{ip.Split('.').Last()}";
+                string name = defaultName;
 
-                return new DiscoveredDevice 
-                { 
-                    IpAddress = ip, 
-                    Type = DeviceType.Tasmota, 
-                    Name = name, 
-                    FirmwareVersion = status2.StatusFWR.Version 
+                // Try to get Friendly Name / DeviceName / Hostname (heavier payload)
+                try
+                {
+                    TasmotaStatusMain? status = null;
+                    // Try encoded 'Status 0' first (common endpoint), then fallback to 'Status'
+                    try
+                    {
+                        status = await httpClient.GetFromJsonAsync<TasmotaStatusMain>($"http://{ip}/cm?cmnd=Status%200");
+                    }
+                    catch
+                    {
+                        try
+                        {
+                            status = await httpClient.GetFromJsonAsync<TasmotaStatusMain>($"http://{ip}/cm?cmnd=Status");
+                        }
+                        catch { }
+                    }
+
+                    bool IsDefault(string? s) => string.IsNullOrWhiteSpace(s) || s.Equals("Tasmota", StringComparison.OrdinalIgnoreCase) || s.Equals("Tasmota2", StringComparison.OrdinalIgnoreCase);
+
+                    if (status?.Status?.FriendlyName != null && status.Status.FriendlyName.Count > 0)
+                    {
+                        var first = status.Status.FriendlyName.ElementAtOrDefault(0);
+                        var second = status.Status.FriendlyName.ElementAtOrDefault(1);
+                        if (!IsDefault(first)) name = first!;
+                        else if (!IsDefault(second)) name = second!;
+                    }
+
+                    if (name == defaultName)
+                    {
+                        if (!IsDefault(status?.Status?.DeviceName)) name = status?.Status?.DeviceName ?? name;
+                    }
+
+                    if (name == defaultName)
+                    {
+                        // try hostname if available in StatusNET
+                        var host = status?.StatusNET?.Hostname ?? status?.Status?.Hostname;
+                        if (!IsDefault(host)) name = host!;
+                    }
+                }
+                catch { }
+
+                return new DiscoveredDevice
+                {
+                    IpAddress = ip,
+                    Type = DeviceType.Tasmota,
+                    Name = name,
+                    FirmwareVersion = status2.StatusFWR.Version
                 };
             }
         }
@@ -61,10 +94,12 @@ public class TasmotaStrategy : IDeviceStrategy
     private class TasmotaStatus2 { public StatusFwr? StatusFWR { get; set; } }
     private class StatusFwr { public string? Version { get; set; } }
     
-    private class TasmotaStatusMain { public StatusInfo? Status { get; set; } }
-    private class StatusInfo 
-    { 
+    private class TasmotaStatusMain { public StatusInfo? Status { get; set; } public StatusNet? StatusNET { get; set; } }
+    private class StatusInfo
+    {
         public string? DeviceName { get; set; }
         public List<string>? FriendlyName { get; set; }
+        public string? Hostname { get; set; }
     }
+    private class StatusNet { public string? Hostname { get; set; } }
 }

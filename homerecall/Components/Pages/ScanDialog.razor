@@ -33,7 +33,7 @@
 
                 <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">@L["Scan_DeviceTypes"]</MudText>
                 
-                <MudChipSet T="DeviceType" AllClosable="false" Filter="true" SelectedValues="_selectedTypes" SelectedValuesChanged="OnSelectedValuesChanged" SelectionMode="SelectionMode.MultiSelection" CheckMark="true">
+                <MudChipSet T="DeviceType" AllClosable="false" SelectedValues="_selectedTypes" SelectedValuesChanged="OnSelectedValuesChanged" SelectionMode="SelectionMode.MultiSelection" CheckMark="true">
                     @foreach (var type in _allTypes)
                     {
                         <MudChip Value="@type" Text="@type.ToString()" Color="Color.Primary" Variant="Variant.Outlined" SelectedColor="Color.Primary" />
