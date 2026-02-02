@@ -107,8 +107,10 @@ app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 // Ensure DB created
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<BackupContext>();    
+        var db = scope.ServiceProvider.GetRequiredService<BackupContext>();    
     db.Database.Migrate();
+    // Enable Write-Ahead Logging (WAL) for better performance and resilience against power loss
+    db.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
 }
 
 app.Run();
