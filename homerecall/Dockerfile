@@ -28,7 +28,9 @@ ENV \
     DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
     LC_ALL=en_US.UTF-8 \
     LANG=en_US.UTF-8 \
-    ASPNETCORE_URLS=http://+:8080
+    ASPNETCORE_URLS=http://+:8080 \
+    persist_path="/data" \
+    backup_path="/data/backups"
 
 # Runtime-Abhängigkeiten installieren
 RUN \

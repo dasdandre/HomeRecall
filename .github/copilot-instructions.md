@@ -1,7 +1,7 @@
 # HomeRecall AI Coding Guidelines
 
 ## Architecture Overview
-HomeRecall is a **Blazor Server web app** for backing up IoT device configurations (Tasmota, WLED, Shelly, OpenDTU, etc.). Built with **.NET 10**, it combines SQLite metadata storage with SHA1-based file deduplication and runs as a **Home Assistant add-on** with Ingress proxy support.
+HomeRecall is a **Blazor Server web app** for backing up IoT device configurations (Tasmota, WLED, Shelly Gen1/Gen2, OpenDTU, etc.). Built with **.NET 10**, it combines SQLite metadata storage with SHA1-based file deduplication and runs as a **Home Assistant add-on** with Ingress proxy support.
 
 **Core Data Flow**: User triggers backup → `BackupService` delegates to specific `IDeviceStrategy` → Strategy fetches config (HTTP) → Service creates ZIP in memory (deterministic timestamp) → Computes SHA1 checksum of raw content → Checks for duplicates (content-based) → Stores to disk (if new) → Records metadata in DB.
 
@@ -20,7 +20,7 @@ homerecall/
   Services/
     BackupService.cs      # Core orchestration: ZIP creation, Deduplication, Storage
     IDeviceStrategy.cs    # Interface for device strategies
-    Strategies/           # Implementations: TasmotaStrategy.cs, WledStrategy.cs, etc.
+    Strategies/           # Implementations: TasmotaStrategy.cs, WledStrategy.cs, ShellyGen2Strategy.cs etc.
     BackupScheduler.cs    # Background service for auto-backups and retention
     DeviceScanner.cs      # Network scanner for discovery
   Components/
@@ -28,6 +28,7 @@ homerecall/
       Home.razor          # Dashboard, Device list
       Backups.razor       # Backup history (Breadcrumbs used here)
       Settings.razor      # Global settings (Retention, Auto-Backup)
+      ScanDialog.razor    # Network scanner UI
     Layout/
       MainLayout.razor    # Theme logic, Navigation
   Controllers/
@@ -70,6 +71,16 @@ To add a new device:
 2. Register in `Program.cs`: `builder.Services.AddScoped<IDeviceStrategy, NewDeviceStrategy>();`.
 3. Add enum value to `DeviceType` in `Models.cs`.
 
+**Key Strategy Details**:
+- **Multi-File Support**: Strategies can return multiple files (e.g., WLED returns `cfg.json` + `presets.json`).
+- **Shelly Distinction**: Separate strategies for `Shelly` (Gen1 via `/settings`) and `ShellyGen2` (Plus/Pro via RPC).
+- **Firmware Version**: Strategies should attempt to extract firmware version during backup.
+
+### Network Scanning (`DeviceScanner.cs`)
+- **Parallelism**: Uses `Parallel.ForEachAsync` with `MaxDegreeOfParallelism = 20`.
+- **Logic**: Scans IP range, trying all selected strategies against each IP.
+- **Persistence**: Last scan settings (Start IP, Range, Types) are saved in `AppSettings`.
+
 ### Ingress & Navigation
 - **PathBase**: Handled in `Program.cs` via `X-Ingress-Path`.
 - **Links**: Use `NavigationManager`.
@@ -81,8 +92,9 @@ new BreadcrumbItem(L["Nav_Devices"], href: NavigationManager.ToAbsoluteUri("").T
 ```
 
 ### Database & Migrations
-- **SQLite**: Data stored in `persist_path` (default `./data`).
-- **Migrations**: `dotnet ef migrations add Name`.
+- **SQLite**: Data stored in `persist_path` (default `./data` or `/data` in Docker).
+- **Backups**: ZIPs stored in `backup_path` (default `./backups` or `/data/backups` in Docker).
+- **HA Backups**: By storing in `/data`, backups are automatically included in HA snapshots.
 - **Auto-Migrate**: `db.Database.Migrate()` is called in `Program.cs` on startup.
 
 ## Development Workflows

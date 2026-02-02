@@ -1,4 +1,4 @@
-# HomeRecall Context
+ip# HomeRecall Context
 
 ## Project Overview
 HomeRecall is a **.NET 10** Blazor Server application designed to backup configurations and data from various IoT devices commonly used in smart homes. It is specifically optimized to run as a Home Assistant Add-on but can also run standalone via Docker.
@@ -14,14 +14,18 @@ HomeRecall is a **.NET 10** Blazor Server application designed to backup configu
 ### 1. Device Strategies (`homerecall/Services/Strategies/`)
 The application uses the Strategy pattern (`IDeviceStrategy`) to support multiple device types.
 - **Supported Devices:** Tasmota, WLED, Shelly (Gen1 & Gen2), OpenDTU, AI-on-the-Edge, Awtrix, OpenHASP.
-- **Scanner:** `DeviceScanner` scans the local network (HTTP) to discover compatible devices.
+- **Capabilities:** Strategies are responsible for:
+    - **Backup:** Fetching config files (supports multi-file backups).
+    - **Probing:** Discovering devices, performing "Smart Naming" (e.g. resolving Tasmota FriendlyNames), and extracting **Firmware Versions**.
+- **Scanner:** `DeviceScanner` scans the local network (HTTP/Parallel) to discover compatible devices.
+    - **Persistence:** Last scan range and selected device types are saved in `AppSettings`.
 
 ### 2. Backup Strategy
 The `BackupService` implements a robust, deduplicating backup process:
 
 1.  **Extraction:**
     - The appropriate `IDeviceStrategy` fetches configuration files via HTTP (30s timeout).
-    - Returns a list of `BackupFile` objects (filename + byte content).
+    - Returns a list of `BackupFile` objects (filename + byte content) and the detected Firmware Version.
 
 2.  **Determinism:**
     - Files are sorted alphabetically by name.
@@ -35,8 +39,10 @@ The `BackupService` implements a robust, deduplicating backup process:
 
 4.  **Storage:**
     - **Naming Convention:** `YYYY-MM-DD_HH-mm-ss_{DeviceName}_{DeviceType}_{ShortHash}.zip`
-    - **Location:** determined by `backup_path` environment variable (default: `./backups`).
-    - **Database:** Stores metadata (DeviceID, Timestamp, Checksum, StoragePath, LockedStatus, Note).
+    - **Location:** determined by `backup_path` environment variable.
+        - **Local Dev:** `./backups`
+        - **Docker/HA:** `/data/backups` (ensures inclusion in HA snapshots)
+    - **Database:** Stores metadata (DeviceID, Timestamp, Checksum, StoragePath, LockedStatus, Note, FirmwareVersion).
 
 5.  **Retention Policy:**
     - Controlled by `BackupScheduler` (Hosted Service).
@@ -70,10 +76,15 @@ This is a critical aspect of the application configuration.
 
 ## Configuration
 - **Environment Variables:**
-  - `persist_path`: Directory for SQLite DB (default: `./data`).
-  - `backup_path`: Directory for backup files (default: `./backups`).
+  - `persist_path`: Directory for SQLite DB.
+    - Local: `./data`
+    - Docker: `/data`
+  - `backup_path`: Directory for backup files.
+    - Local: `./backups`
+    - Docker: `/data/backups`
 - **Data Storage:**
-  - Docker volumes should map to `/app/data` and `/app/backups`.
+  - **Home Assistant:** Uses `/data` volume for persistence. Backups stored in `/data/backups` are automatically included in Home Assistant's full snapshots.
 
 ## Recent Focus
+- **Device Strategies:** Improved Tasmota strategy to probe for Friendly Name, Device Name, or Hostname instead of generic naming.
 - **Breadcrumb Navigation:** Fixed absolute path generation for Breadcrumbs to work correctly with Home Assistant Ingress using `NavigationManager.ToAbsoluteUri`.
