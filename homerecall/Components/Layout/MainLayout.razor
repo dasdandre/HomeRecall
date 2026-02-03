@@ -12,24 +12,38 @@
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="0" Color="Color.Primary" Dense="true">
-        <MudText Typo="Typo.h6" Class="ml-2">@L["App_Title"]</MudText>
+        <MudAppBar Elevation="0" Color="Color.Primary" Dense="true" Class="mud-appbar-fixed-top">
+        <MudText Typo="Typo.h6" Class="ml-2 mr-4">@L["App_Title"]</MudText>
+        
+        <MudHidden Breakpoint="Breakpoint.SmAndDown">
+            <MudTabs Elevation="0" Rounded="true" Color="Color.Primary" SliderColor="Color.Secondary" ActivePanelIndex="@_activeTab" ActivePanelIndexChanged="OnTabChanged" Centered="true" Class="ml-4">
+                <MudTabPanel Text="@L["Nav_Devices"]" Icon="@Icons.Material.Filled.Home" />
+                <MudTabPanel Text="@L["Nav_Settings"]" Icon="@Icons.Material.Filled.Settings" />
+            </MudTabs>
+        </MudHidden>
+        
         <MudSpacer />
-        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="@(() => NavigationManager.NavigateTo(""))" StartIcon="@Icons.Material.Filled.Home">@L["Nav_Devices"]</MudButton>
-        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="@(() => NavigationManager.NavigateTo("settings"))" StartIcon="@Icons.Material.Filled.Settings">@L["Nav_Settings"]</MudButton>
     </MudAppBar>
 
     <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="mt-8 mb-16"> <!-- mb-16 for bottom nav space -->
             @Body
         </MudContainer>
     </MudMainContent>
+    
+    <MudHidden Breakpoint="Breakpoint.MdAndUp">
+        <MudPaper Elevation="3" Class="d-flex justify-space-around align-center py-2 fixed-bottom" Style="background-color: var(--mud-palette-background); position: fixed; bottom: 0; width: 100%; z-index: 1000;">
+            <MudIconButton Icon="@Icons.Material.Filled.Home" Color="@(_activeTab == 0 ? Color.Primary : Color.Default)" OnClick="@(() => OnTabChanged(0))" />
+            <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="@(_activeTab == 1 ? Color.Primary : Color.Default)" OnClick="@(() => OnTabChanged(1))" />
+        </MudPaper>
+    </MudHidden>
 </MudLayout>
 
 @code {
-    private MudTheme _theme = new MudTheme();
+        private MudTheme _theme = new MudTheme();
     private bool _isDarkMode = false;
     private DotNetObjectReference<MainLayout>? _objRef;
+    private int _activeTab = 0;
 
     protected override void OnInitialized()
     {
@@ -38,6 +52,39 @@
         _theme.PaletteLight.AppbarBackground = "#03a9f4";
         _theme.PaletteDark.Primary = "#03a9f4";
         _theme.PaletteDark.AppbarBackground = "#03a9f4";
+        
+        NavigationManager.LocationChanged += OnLocationChanged;
+        UpdateActiveTab(NavigationManager.Uri);
+    }
+    
+        private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        UpdateActiveTab(e.Location);
+        StateHasChanged();
+    }
+    
+    private void UpdateActiveTab(string url)
+    {
+        if (url.Contains("/settings", StringComparison.OrdinalIgnoreCase))
+        {
+            _activeTab = 1;
+        }
+        else if (url.EndsWith("/") || !url.Contains("/backups", StringComparison.OrdinalIgnoreCase)) 
+        {
+            _activeTab = 0;
+        }
+        // If on backups page, keep current or default to devices (0)
+        else if (url.Contains("/backups", StringComparison.OrdinalIgnoreCase))
+        {
+             _activeTab = 0;
+        }
+    }
+    
+    private void OnTabChanged(int index)
+    {
+        _activeTab = index;
+        if (index == 0) NavigationManager.NavigateTo("");
+        else if (index == 1) NavigationManager.NavigateTo("settings");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -123,8 +170,9 @@
         };
     }
 
-    public void Dispose()
+        public void Dispose()
     {
+        NavigationManager.LocationChanged -= OnLocationChanged;
         _objRef?.Dispose();
     }
 
