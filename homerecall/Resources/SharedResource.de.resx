@@ -279,4 +279,7 @@
   <data name="Scan_Summary" xml:space="preserve">
     <value>Scanne {0} IPs ({1} übersprungen)</value>
   </data>
+  <data name="Common_Search" xml:space="preserve">
+    <value>Suchen...</value>
+  </data>
 </root>

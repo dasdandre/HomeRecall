@@ -32,11 +32,72 @@
 }
 else
 {
+        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+        <MudStack Spacing="3">
+            @foreach (var backup in _device.Backups.OrderByDescending(b => b.CreatedAt))
+            {
+                <MudCard Elevation="3">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.body1" Style="font-weight: bold">@backup.CreatedAt.ToLocalTime().ToString("g")</MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                @if (!string.IsNullOrEmpty(backup.FirmwareVersion))
+                                {
+                                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default" Class="ml-0">@backup.FirmwareVersion</MudChip>
+                                }
+                                <code style="font-size: 0.7rem">@backup.Sha1Checksum.Substring(0, Math.Min(8, backup.Sha1Checksum.Length))</code>
+                            </MudStack>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                            @if (IsDuplicateOfPrevious(backup))
+                             {
+                                 <MudTooltip Text="@L["Backups_ContentUnchanged"]">
+                                    <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Default" Size="Size.Small" />
+                                 </MudTooltip>
+                             }
+                             else
+                             {
+                                 <MudTooltip Text="@L["Backups_ContentChanged"]">
+                                    <MudIcon Icon="@Icons.Material.Filled.Update" Color="Color.Success" Size="Size.Small" />
+                                 </MudTooltip>
+                             }
+                        </CardHeaderActions>
+                    </MudCardHeader>
+                    <MudCardContent Class="pt-0">
+                         <MudTextField Value="@backup.Note"
+                               ValueChanged="@((string s) => UpdateNote(backup, s))"
+                               Placeholder="@(L["Backups_Note"] + "...")"
+                               Margin="Margin.Dense"
+                               Variant="Variant.Text"
+                               Immediate="true"/>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudToggleIconButton Toggled="@backup.IsLocked"
+                                             ToggledChanged="@((bool b) => ToggleLock(backup))"
+                                             Icon="@Icons.Material.Outlined.LockOpen"
+                                             Color="@Color.Default"
+                                             ToggledIcon="@Icons.Material.Filled.Lock"
+                                             ToggledColor="@Color.Warning" />
+                        <MudSpacer />
+                        <MudIconButton Icon="@Icons.Material.Filled.Download"
+                               Color="Color.Primary"
+                               OnClick="@(() => DownloadBackup(backup))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                               Color="Color.Error"
+                               OnClick="@(() => DeleteBackup(backup))"
+                               Disabled="@backup.IsLocked" />
+                    </MudCardActions>
+                </MudCard>
+            }
+        </MudStack>
+    </MudHidden>
+
+    <MudHidden Breakpoint="Breakpoint.SmAndDown">
     <MudTable Items="@_device.Backups.OrderByDescending(b => b.CreatedAt)"
               MultiSelection="true"
               @bind-SelectedItems="_selectedItems"
               Hover="true"
-              Breakpoint="Breakpoint.Sm"
+              Elevation="3"
               Loading="@_loading"
               LoadingProgressColor="Color.Info">
                         <HeaderContent>
@@ -102,9 +163,10 @@ else
                                Size="Size.Small"
                                OnClick="@(() => DeleteBackup(context))"
                                Disabled="@context.IsLocked" />
-            </MudTd>
+                        </MudTd>
         </RowTemplate>
     </MudTable>
+    </MudHidden>
 }
 
 @code {

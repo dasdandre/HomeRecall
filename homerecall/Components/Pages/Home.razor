@@ -33,11 +33,13 @@
                         <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="OpenScanDialog" StartIcon="@Icons.Material.Filled.Search">
                 @L["Devices_Scan"]
             </MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddDeviceDialog" StartIcon="@Icons.Material.Filled.Add">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddDeviceDialog" StartIcon="@Icons.Material.Filled.Add">
                 @L["Devices_AddDevice"]
             </MudButton>
         </MudStack>
     </div>
+    
+    <MudTextField @bind-Value="_searchString" Placeholder="@L["Common_Search"]" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0 mb-4"></MudTextField>
 
     @if (_loading)
     {
@@ -47,15 +49,75 @@
     {
         <MudAlert Severity="Severity.Info" Variant="Variant.Filled">@L["Devices_NoDevices"]</MudAlert>
     }
-    else
+        else
     {
-        <MudTable Items="@_devices" MultiSelection="true" @bind-SelectedItems="_selectedItems" Hover="true" Elevation="3" Breakpoint="Breakpoint.Sm">
-                        <HeaderContent>
-                <MudTh>@L["Devices_Table_Name"]</MudTh>
-                <MudTh>@L["Devices_Table_IpAddress"]</MudTh>
-                <MudTh>@L["Devices_Table_Type"]</MudTh>
-                <MudTh>Firmware</MudTh>
-                <MudTh>@L["Devices_Table_LastBackup"]</MudTh>
+                <!-- Mobile View: Cards -->
+        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            <MudGrid Class="mb-4">
+                @foreach (var device in _devices.Where(FilterDevices))
+                {
+                    <MudItem xs="12">
+                        <MudCard Elevation="3">
+                            <MudCardHeader>
+                                <CardHeaderContent>
+                                    <MudText Typo="Typo.h6">@device.Name</MudText>
+                                    <MudLink Href="@($"http://{device.IpAddress}")" Target="_blank" Underline="Underline.Hover">@device.IpAddress</MudLink>
+                                </CardHeaderContent>
+                                <CardHeaderActions>
+                                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@device.Type</MudChip>
+                                </CardHeaderActions>
+                            </MudCardHeader>
+                            <MudCardContent>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.body2">Firmware: @(device.CurrentFirmwareVersion ?? "-")</MudText>
+                                    @if (device.LastBackup.HasValue)
+                                    {
+                                        <div class="d-flex align-center gap-1">
+                                            <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="Color.Default"/>
+                                            <MudText Typo="Typo.body2">@device.LastBackup.Value.ToLocalTime().ToString("g")</MudText>
+                                        </div>
+                                    }
+                                </MudStack>
+                            </MudCardContent>
+                            <MudCardActions>
+                                <MudButton Variant="Variant.Text" 
+                                           Color="Color.Primary" 
+                                           StartIcon="@(_isBackingUp.Contains(device.Id) ? null : Icons.Material.Filled.Backup)"
+                                           Disabled="@(_isBackingUp.Contains(device.Id))"
+                                           OnClick="@(() => BackupDevice(device))">
+                                    @if (_isBackingUp.Contains(device.Id))
+                                    {
+                                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                    }
+                                    else
+                                    {
+                                        @L["Common_Backup"]
+                                    }
+                                </MudButton>
+                                <MudButton Variant="Variant.Text" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.History" OnClick="@(() => NavigateToBackups(device.Id))">
+                                    @L["Common_Backups"] (@device.Backups.Count)
+                                </MudButton>
+                                <MudSpacer />
+                                <MudMenu Icon="@Icons.Material.Filled.MoreVert">
+                                    <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => RenameDevice(device))">@L["Common_Rename"]</MudMenuItem>
+                                    <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => DeleteDevice(device))" IconColor="Color.Error">@L["Common_Delete"]</MudMenuItem>
+                                </MudMenu>
+                            </MudCardActions>
+                        </MudCard>
+                    </MudItem>
+                }
+            </MudGrid>
+        </MudHidden>
+
+                <!-- Desktop View: Table -->
+        <MudHidden Breakpoint="Breakpoint.SmAndDown">
+            <MudTable Items="@_devices" MultiSelection="true" @bind-SelectedItems="_selectedItems" Hover="true" Elevation="3" Filter="new Func<Device,bool>(FilterDevices)">
+                                    <HeaderContent>
+                <MudTh><MudTableSortLabel SortBy="new Func<Device, object>(x=>x.Name)">@L["Devices_Table_Name"]</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Device, object>(x=>GetSortableIp(x.IpAddress))">@L["Devices_Table_IpAddress"]</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Device, object>(x=>x.Type)">@L["Devices_Table_Type"]</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Device, object>(x=>x.CurrentFirmwareVersion ?? string.Empty)">Firmware</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<Device, object>(x=>x.LastBackup ?? DateTime.MinValue)">@L["Devices_Table_LastBackup"]</MudTableSortLabel></MudTh>
                 <MudTh Style="text-align:right">@L["Devices_Table_Actions"]</MudTh>
             </HeaderContent>
             <RowTemplate>
@@ -125,7 +187,8 @@
                     </MudStack>
                 </MudTd>
             </RowTemplate>
-        </MudTable>
+            </MudTable>
+        </MudHidden>
     }
 </MudContainer>
 
@@ -133,12 +196,36 @@
     private List<Device> _devices = new();
     private HashSet<Device> _selectedItems = new();
     private bool _loading = true;
-    private HashSet<int> _isBackingUp = new();
+        private HashSet<int> _isBackingUp = new();
     private bool _isMassBackingUp = false;
+    private string _searchString = "";
 
     protected override async Task OnInitializedAsync()
     {
         await LoadDevices();
+    }
+    
+        private bool FilterDevices(Device device)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString)) return true;
+        if (device.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase)) return true;
+        if (device.IpAddress.Contains(_searchString, StringComparison.OrdinalIgnoreCase)) return true;
+        if (device.Type.ToString().Contains(_searchString, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+    
+    private string GetSortableIp(string ipAddress)
+    {
+        // Pad IPv4 segments with zeros for alphanumeric sorting (e.g. 192.168.1.2 -> 192.168.001.002)
+        if (System.Net.IPAddress.TryParse(ipAddress, out var ip))
+        {
+             var bytes = ip.GetAddressBytes();
+             if (bytes.Length == 4) 
+             {
+                 return $"{bytes[0]:000}.{bytes[1]:000}.{bytes[2]:000}.{bytes[3]:000}";
+             }
+        }
+        return ipAddress;
     }
 
     private async Task LoadDevices()
