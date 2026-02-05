@@ -145,6 +145,7 @@ public class BackupService : IBackupService
 
             _context.Backups.Add(backup);
             device.LastBackup = DateTime.UtcNow;
+            device.BackupFailures = 0; // Reset failures on success
 
             await _context.SaveChangesAsync();
 
@@ -154,6 +155,10 @@ public class BackupService : IBackupService
         catch (Exception ex)
         {
             _logger.LogError(ex, $"Error backing up {device.Name}");
+            // Increment failures
+            device.BackupFailures++;
+            await _context.SaveChangesAsync();
+            
             // Rethrow so UI can show error
             throw; 
         }

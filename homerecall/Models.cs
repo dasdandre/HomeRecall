@@ -65,7 +65,9 @@ public class Device
     // Auto-Backup specific overrides (optional, nullable means inherit from AppSettings)
     public bool? AutoBackupOverride { get; set; } 
 
-    public DateTime? LastAutoBackupAttempt { get; set; }
+        public DateTime? LastAutoBackupAttempt { get; set; }
+
+    public int BackupFailures { get; set; } = 0;
     
     public List<Backup> Backups { get; set; } = new();
 }

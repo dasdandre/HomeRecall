@@ -282,4 +282,10 @@
   <data name="Common_Search" xml:space="preserve">
     <value>Suchen...</value>
   </data>
+  <data name="Devices_Backup_Failure_Warning" xml:space="preserve">
+    <value>Warnung: {0} fehlgeschlagene Backup-Versuche.</value>
+  </data>
+  <data name="Devices_Backup_Failure_Error" xml:space="preserve">
+    <value>Fehler: {0} fehlgeschlagene Backup-Versuche in Folge!</value>
+  </data>
 </root>
