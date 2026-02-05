@@ -9,7 +9,6 @@
 @inject IDialogService DialogService
 @inject NavigationManager NavigationManager
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
     <div class="d-flex justify-space-between align-center mb-6">
         <MudText Typo="Typo.h4">@L["Devices_Title"]</MudText>
         <MudStack Row="true" Spacing="2">
@@ -39,7 +38,8 @@
         </MudStack>
     </div>
     
-    <MudTextField @bind-Value="_searchString" Placeholder="@L["Common_Search"]" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0 mb-4"></MudTextField>
+
+        <!-- MudStack for Search removed here, moved into Mobile View -->
 
     @if (_loading)
     {
@@ -51,8 +51,22 @@
     }
         else
     {
-                <!-- Mobile View: Cards -->
-        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            <!-- Mobile View: Cards -->
+            <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            <MudGrid class="mb-4">
+                <MudItem xs="8">
+                    <MudTextField @bind-Value="_searchString" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium"></MudTextField>                    
+                </MudItem>    
+                <MudItem xs="4">
+                    <MudSelect T="DeviceType?" @bind-Value="_filterType" Clearable="true" Placeholder="@L["Devices_Table_Type"]">
+                        @foreach (DeviceType type in Enum.GetValues(typeof(DeviceType)))
+                        {
+                            <MudSelectItem Value="(DeviceType?)type">@type</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>           
+
             <MudGrid Class="mb-4">
                 @foreach (var device in _devices.Where(FilterDevices))
                 {
@@ -109,104 +123,123 @@
             </MudGrid>
         </MudHidden>
 
-                <!-- Desktop View: Table -->
+        <!-- Desktop View: DataGrid -->
         <MudHidden Breakpoint="Breakpoint.SmAndDown">
-            <MudTable Items="@_devices" MultiSelection="true" @bind-SelectedItems="_selectedItems" Hover="true" Elevation="3" Filter="new Func<Device,bool>(FilterDevices)">
-                                    <HeaderContent>
-                <MudTh><MudTableSortLabel SortBy="new Func<Device, object>(x=>x.Name)">@L["Devices_Table_Name"]</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<Device, object>(x=>GetSortableIp(x.IpAddress))">@L["Devices_Table_IpAddress"]</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<Device, object>(x=>x.Type)">@L["Devices_Table_Type"]</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<Device, object>(x=>x.CurrentFirmwareVersion ?? string.Empty)">Firmware</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<Device, object>(x=>x.LastBackup ?? DateTime.MinValue)">@L["Devices_Table_LastBackup"]</MudTableSortLabel></MudTh>
-                <MudTh Style="text-align:right">@L["Devices_Table_Actions"]</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="@L["Devices_Table_Name"]">
-                    <MudText Typo="Typo.body1" Style="font-weight: 500;">@context.Name</MudText>
-                </MudTd>
-                <MudTd DataLabel="@L["Devices_Table_IpAddress"]">
-                    <MudLink Href="@($"http://{context.IpAddress}")" Target="_blank" Underline="Underline.Hover">@context.IpAddress</MudLink>
-                </MudTd>
-                <MudTd DataLabel="@L["Devices_Table_Type"]">
-                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@context.Type</MudChip>
-                </MudTd>
-                <MudTd DataLabel="Firmware">
-                    @if (!string.IsNullOrEmpty(context.CurrentFirmwareVersion))
-                    {
-                        <MudText Typo="Typo.body2" Color="Color.Default">@context.CurrentFirmwareVersion</MudText>
-                    }
-                    else
-                    {
-                        <MudText Typo="Typo.body2" Color="Color.Default">-</MudText>
-                    }
-                </MudTd>
-                <MudTd DataLabel="@L["Devices_Table_LastBackup"]">
-                    @if (context.LastBackup.HasValue)
-                    {
-                        <div class="d-flex align-center gap-1">
-                             <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="Color.Default"/>
-                             <MudText Typo="Typo.body2">@context.LastBackup.Value.ToLocalTime().ToString("g")</MudText>
-                        </div>
-                    }
-                    else
-                    {
-                        <MudText Typo="Typo.body2" Color="Color.Default">-</MudText>
-                    }
-                </MudTd>
-                <MudTd DataLabel="@L["Devices_Table_Actions"]" Style="text-align:right">
-                    <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
-                                                  <MudButton Variant="Variant.Outlined" 
+            <MudDataGrid Items="@_devices" MultiSelection="true" @bind-SelectedItems="_selectedItems" Hover="true" Elevation="3" Filterable="true" SortMode="SortMode.Multiple" QuickFilter="@_quickFilter">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">@L["Devices_Title"]</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="_searchString" Placeholder="@L["Common_Search"]" Adornment="Adornment.Start" Immediate="true"
+                        AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                </ToolBarContent>
+                <Columns>
+                    <SelectColumn T="Device" />
+                    <PropertyColumn Property="x => x.Name" Title="@L["Devices_Table_Name"]" Filterable="false" />
+                    <PropertyColumn Property="x => x.IpAddress" Title="@L["Devices_Table_IpAddress"]" Filterable="false">
+                        <CellTemplate>
+                             <MudLink Href="@($"http://{context.Item.IpAddress}")" Target="_blank" Underline="Underline.Hover">@context.Item.IpAddress</MudLink>
+                        </CellTemplate>
+                    </PropertyColumn>
+                    <PropertyColumn Property="x => x.Type" Title="@L["Devices_Table_Type"]">
+                        <CellTemplate>
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@context.Item.Type</MudChip>
+                        </CellTemplate>
+                    </PropertyColumn>
+                    <PropertyColumn Property="x => x.CurrentFirmwareVersion" Title="Firmware" Filterable="false" />
+                    <PropertyColumn Property="x => x.LastBackup" Title="@L["Devices_Table_LastBackup"]">
+                         <CellTemplate>
+                            @if (context.Item.LastBackup.HasValue)
+                            {
+                                <div class="d-flex align-center gap-1">
+                                     <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="Color.Default"/>
+                                     <MudText Typo="Typo.body2">@context.Item.LastBackup.Value.ToLocalTime().ToString("g")</MudText>
+                                </div>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Default">-</MudText>
+                            }
+                         </CellTemplate>
+                    </PropertyColumn>
+                    <TemplateColumn Title="@L["Devices_Table_Actions"]" Sortable="false" Filterable="false">
+                        <CellTemplate>
+                             <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+                                <MudButton Variant="Variant.Outlined" 
                                     Color="Color.Primary" 
                                     Size="Size.Small" 
-                                    StartIcon="@(_isBackingUp.Contains(context.Id) ? null : Icons.Material.Filled.Backup)"
-                                    Disabled="@(_isBackingUp.Contains(context.Id))"
-                                    OnClick="@(() => BackupDevice(context))">
-                             @if (_isBackingUp.Contains(context.Id))
-                             {
-                                 <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
-                                 <MudText Class="ms-2">@L["Common_BackupInProgress"]</MudText>
-                             }
-                             else
-                             {
-                                 <MudText>@L["Common_Backup"]</MudText>
-                             }
-                         </MudButton>
+                                    StartIcon="@(_isBackingUp.Contains(context.Item.Id) ? null : Icons.Material.Filled.Backup)"
+                                    Disabled="@(_isBackingUp.Contains(context.Item.Id))"
+                                    OnClick="@(() => BackupDevice(context.Item))">
+                                     @if (_isBackingUp.Contains(context.Item.Id))
+                                     {
+                                         <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                         <MudText Class="ms-2">@L["Common_BackupInProgress"]</MudText>
+                                     }
+                                     else
+                                     {
+                                         <MudText>@L["Common_Backup"]</MudText>
+                                     }
+                                 </MudButton>
 
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Secondary"
-                                   Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.History"
-                                   OnClick="@(() => NavigateToBackups(context.Id))">
-                            @L["Common_Backups"] (@context.Backups.Count)
-                        </MudButton>
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Secondary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.History"
+                                           OnClick="@(() => NavigateToBackups(context.Item.Id))">
+                                    @L["Common_Backups"] (@context.Item.Backups.Count)
+                                </MudButton>
 
-                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                             <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => RenameDevice(context))">@L["Common_Rename"]</MudMenuItem>
-                             <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => DeleteDevice(context))" IconColor="Color.Error">@L["Common_Delete"]</MudMenuItem>
-                        </MudMenu>
-                    </MudStack>
-                </MudTd>
-            </RowTemplate>
-            </MudTable>
+                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                                     <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => RenameDevice(context.Item))">@L["Common_Rename"]</MudMenuItem>
+                                     <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => DeleteDevice(context.Item))" IconColor="Color.Error">@L["Common_Delete"]</MudMenuItem>
+                                </MudMenu>
+                            </MudStack>
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+            </MudDataGrid>
         </MudHidden>
     }
-</MudContainer>
 
 @code {
     private List<Device> _devices = new();
     private HashSet<Device> _selectedItems = new();
     private bool _loading = true;
-        private HashSet<int> _isBackingUp = new();
+            private HashSet<int> _isBackingUp = new();
     private bool _isMassBackingUp = false;
     private string _searchString = "";
+    private DeviceType? _filterType;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadDevices();
     }
     
-        private bool FilterDevices(Device device)
+        
+    // QuickFilter for DataGrid
+    private Func<Device, bool> _quickFilter => x =>
     {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        if (x.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (x.IpAddress.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (x.Type.ToString().Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    };
+
+    private bool FilterDevices(Device device)
+    {
+        // Type Filter
+        if (_filterType.HasValue && device.Type != _filterType.Value) return false;
+
+        // Search Filter
         if (string.IsNullOrWhiteSpace(_searchString)) return true;
         if (device.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase)) return true;
         if (device.IpAddress.Contains(_searchString, StringComparison.OrdinalIgnoreCase)) return true;
