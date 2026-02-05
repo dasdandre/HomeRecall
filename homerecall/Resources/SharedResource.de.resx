@@ -288,4 +288,7 @@
   <data name="Devices_Backup_Failure_Error" xml:space="preserve">
     <value>Fehler: {0} fehlgeschlagene Backup-Versuche in Folge!</value>
   </data>
+  <data name="Devices_Backup_Failure_LastFailed" xml:space="preserve">
+    <value>Letzter Backup-Versuch fehlgeschlagen</value>
+  </data>
 </root>

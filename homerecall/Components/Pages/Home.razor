@@ -154,21 +154,25 @@
                         </CellTemplate>
                     </PropertyColumn>
                     <PropertyColumn Property="x => x.CurrentFirmwareVersion" Title="Firmware" Filterable="false" />
-                                                            <PropertyColumn Property="x => x.LastBackup" Title="@L["Devices_Table_LastBackup"]">
+                    <PropertyColumn Property="x => x.LastBackup" Title="@L["Devices_Table_LastBackup"]">
                          <CellTemplate>
-                            <div class="d-flex align-center gap-2"> <!-- gap-2 for better spacing -->
-                                @if (context.Item.BackupFailures >= 3)
+                            <div class="d-flex align-center gap-2">
+                                @if (context.Item.BackupFailures > 0)
                                 {
-                                    <MudTooltip Text="@(context.Item.BackupFailures >= 7 ? String.Format(L["Devices_Backup_Failure_Error"], context.Item.BackupFailures) : String.Format(L["Devices_Backup_Failure_Warning"], context.Item.BackupFailures))">
-                                        <div class="d-flex align-center"> <!-- Wrap in flex center -->
-                                            <MudIcon Icon="@(context.Item.BackupFailures >= 7 ? Icons.Material.Filled.Error : Icons.Material.Filled.Warning)" Color="@(context.Item.BackupFailures >= 7 ? Color.Error : Color.Warning)" Size="Size.Small" />
+                                    <MudTooltip Text="@L["Devices_Backup_Failure_LastFailed"]">
+                                        <div class="d-flex align-center">
+                                            <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" />
                                         </div>
                                     </MudTooltip>
                                 }
-                                @if (context.Item.LastBackup.HasValue)
+                                
+                                                                @if (context.Item.LastBackup.HasValue)
                                 {
-                                    <div class="d-flex align-center gap-1"> <!-- Inner flex for time icon + text -->
-                                         <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="Color.Default"/>
+                                    var daysSince = (DateTime.UtcNow - context.Item.LastBackup.Value).TotalDays;
+                                    var color = daysSince > 30 ? Color.Error : (daysSince > 7 ? Color.Warning : Color.Default);
+                                    
+                                    <div class="d-flex align-center gap-1">
+                                         <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="@color"/>
                                          <MudText Typo="Typo.body2">@context.Item.LastBackup.Value.ToLocalTime().ToString("g")</MudText>
                                     </div>
                                 }
@@ -176,7 +180,6 @@
                                 {
                                     <MudText Typo="Typo.body2" Color="Color.Default">-</MudText>
                                 }
-                       
                             </div>
                          </CellTemplate>
                     </PropertyColumn>
