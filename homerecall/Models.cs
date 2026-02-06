@@ -41,6 +41,9 @@ public class AppSettings
     // For "SimpleCount" Mode
     public int MaxCountToKeep { get; set; } = 10;
 
+    // UI Settings
+    public bool UseRelativeTime { get; set; } = true;
+
     // Scan Settings Persistence
     public string? LastScanIpStart { get; set; }
     public int LastScanIpEndSuffix { get; set; } = 254;

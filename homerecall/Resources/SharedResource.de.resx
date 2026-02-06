@@ -303,4 +303,10 @@
   <data name="Devices_AutoBackup_Excluded" xml:space="preserve">
     <value>Vom automatischen Backup ausgeschlossen</value>
   </data>
+  <data name="Settings_Appearance_Title" xml:space="preserve">
+    <value>Erscheinungsbild</value>
+  </data>
+  <data name="Settings_Appearance_RelativeTime" xml:space="preserve">
+    <value>Relative Zeitangaben verwenden (z.B. "vor 5 Minuten")</value>
+  </data>
 </root>

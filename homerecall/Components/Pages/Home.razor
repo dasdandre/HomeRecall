@@ -1,4 +1,5 @@
 @page "/"
+@using Humanizer
 @using HomeRecall.Services
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.Extensions.Localization
@@ -188,9 +189,9 @@
                                     var daysSince = (DateTime.UtcNow - context.Item.LastBackup.Value).TotalDays;
                                     var color = daysSince > 30 ? Color.Error : (daysSince > 7 ? Color.Warning : Color.Default);
                                     
-                                    <div class="d-flex align-center gap-1">
+                                                                        <div class="d-flex align-center gap-1">
                                          <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="@color"/>
-                                         <MudText Typo="Typo.body2">@context.Item.LastBackup.Value.ToLocalTime().ToString("g")</MudText>
+                                         <MudText Typo="Typo.body2">@FormatDate(context.Item.LastBackup)</MudText>
                                     </div>
                                 }
                                 else
@@ -240,6 +241,7 @@
         </MudHidden>
     }
 
+
 @code {
     private List<Device> _devices = new();
     private HashSet<Device> _selectedItems = new();
@@ -248,10 +250,35 @@
     private bool _isMassBackingUp = false;
     private string _searchString = "";
     private DeviceType? _filterType;
+    // ...
+    private AppSettings? _settings; // We need settings loaded for preference
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadSettings();
         await LoadDevices();
+    }
+
+    private async Task LoadSettings()
+    {
+        _settings = await Context.Settings.FindAsync(1);
+    }
+    
+    // ...
+    
+    // Helper for formatting
+    private string FormatDate(DateTime? date)
+    {
+        if (!date.HasValue) return "-";
+        
+        if (_settings?.UseRelativeTime == true)
+        {
+            return date.Value.Humanize(); 
+        }
+        else
+        {
+            return date.Value.ToLocalTime().ToString("g");
+        }
     }
     
         

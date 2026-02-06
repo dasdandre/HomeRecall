@@ -21,6 +21,11 @@
 @if (_settings != null)
 {
     <MudPaper Class="pa-4 mt-4">
+        <MudText Typo="Typo.h6" Class="mb-4">@L["Settings_Appearance_Title"]</MudText>
+        <MudSwitch @bind-Value="_settings.UseRelativeTime" Color="Color.Primary" Label="@L["Settings_Appearance_RelativeTime"]" />
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mt-4">
         <MudText Typo="Typo.h6" Class="mb-4">@L["Settings_AutoBackup_Title"]</MudText>
         
         <MudSwitch @bind-Value="_settings.AutoBackupEnabled" Color="Color.Primary" Label="@L["Settings_AutoBackup_Enabled"]" />
