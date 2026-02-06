@@ -11,38 +11,7 @@ window.getHaColors = async () => {
         drawerBackground: '#ffffff',
         drawerText: '#212121'
     };
-
-    try {
-        // Try to get the parent window (Home Assistant Ingress context)
-        const parentWindow = (window.parent && window.parent !== window) ? window.parent : window;
-        
-        // Check if hass object is available (HA 2024.1+)
-        if (parentWindow.hass) {
-            
-            if (parentWindow.hass.themes) {
-                const themes = parentWindow.hass.themes;
-                const isDarkMode = parentWindow.hass.themes.darkMode || false;
-                const currentThemeName = parentWindow.hass.themes.theme || (isDarkMode ? 'dark' : 'light');
-                const currentTheme = themes.themes && themes.themes[currentThemeName] ? themes.themes[currentThemeName] : {};
-                
-                return {
-                    isDarkMode: isDarkMode,
-                    primary: currentTheme['--primary-color'] || defaults.primary,
-                    secondary: currentTheme['--accent-color'] || defaults.secondary,
-                    background: currentTheme['--primary-background-color'] || defaults.background,
-                    surface: currentTheme['--card-background-color'] || defaults.surface,
-                    textPrimary: currentTheme['--primary-text-color'] || defaults.textPrimary,
-                    textSecondary: currentTheme['--secondary-text-color'] || defaults.textSecondary,
-                    appBarBackground: currentTheme['--app-header-background-color'] || defaults.appBarBackground,
-                    appBarText: currentTheme['--app-header-text-color'] || defaults.appBarText,
-                    drawerBackground: currentTheme['--card-background-color'] || defaults.drawerBackground,
-                    drawerText: currentTheme['--primary-text-color'] || defaults.drawerText
-                };
-            }
-        }
-    } catch (e) {
-        // Ignore error
-    }
+   
 
     // Fallback to CSS variables if API not available
     try {

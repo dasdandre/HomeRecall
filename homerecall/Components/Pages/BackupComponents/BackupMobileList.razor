@@ -3,6 +3,8 @@
 @using Microsoft.Extensions.Localization
 @inject IStringLocalizer<SharedResource> L
 
+<!-- Mobile View: Card List -->
+<!-- This view is only shown on small screens (md and down) -->
 <MudHidden Breakpoint="Breakpoint.MdAndUp">
     <MudStack Spacing="3">
         @foreach (var backup in Backups.OrderByDescending(b => b.CreatedAt))
@@ -10,16 +12,19 @@
             <MudCard Elevation="3">
                 <MudCardHeader>
                     <CardHeaderContent>
+                        <!-- Date and Firmware Info -->
                         <MudText Typo="Typo.body1" Style="font-weight: bold">@backup.CreatedAt.ToLocalTime().ToString("g")</MudText>
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                             @if (!string.IsNullOrEmpty(backup.FirmwareVersion))
                             {
                                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default" Class="ml-0">@backup.FirmwareVersion</MudChip>
                             }
+                            <!-- Shortened Checksum -->
                             <code style="font-size: 0.7rem">@backup.Sha1Checksum.Substring(0, Math.Min(8, backup.Sha1Checksum.Length))</code>
                         </MudStack>
                     </CardHeaderContent>
                     <CardHeaderActions>
+                        <!-- Change Indicator (Icon shows if content changed compared to previous backup) -->
                         @if (IsDuplicateOfPrevious(backup))
                             {
                                 <MudTooltip Text="@L["Backups_ContentUnchanged"]">
@@ -35,6 +40,7 @@
                     </CardHeaderActions>
                 </MudCardHeader>
                 <MudCardContent Class="pt-0">
+                        <!-- Editable Note Field -->
                         <MudTextField Value="@backup.Note"
                             ValueChanged="@((string s) => OnUpdateNote.InvokeAsync((backup, s)))"
                             Placeholder="@(L["Backups_Note"] + "...")"
@@ -43,6 +49,7 @@
                             Immediate="true"/>
                 </MudCardContent>
                 <MudCardActions>
+                    <!-- Actions: Lock, Download, Delete -->
                     <MudToggleIconButton Toggled="@backup.IsLocked"
                                             ToggledChanged="@((bool b) => OnToggleLock.InvokeAsync(backup))"
                                             Icon="@Icons.Material.Outlined.LockOpen"
@@ -66,11 +73,13 @@
 @code {
     [Parameter] public List<Backup> Backups { get; set; } = new();
     
+    // Callbacks for parent component interaction
     [Parameter] public EventCallback<(Backup, string)> OnUpdateNote { get; set; }
     [Parameter] public EventCallback<Backup> OnToggleLock { get; set; }
     [Parameter] public EventCallback<Backup> OnDownloadBackup { get; set; }
     [Parameter] public EventCallback<Backup> OnDeleteBackup { get; set; }
 
+    // Helper to determine if a backup is identical to its predecessor based on SHA1
     private bool IsDuplicateOfPrevious(Backup current)
     {
         // Check if the NEXT older backup has the same hash.

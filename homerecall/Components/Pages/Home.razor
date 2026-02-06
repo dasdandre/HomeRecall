@@ -11,6 +11,7 @@
 @inject IDialogService DialogService
 @inject NavigationManager NavigationManager
 
+<!-- Header section with action buttons (Backup, Delete, Scan, Add) -->
 <DeviceActionsHeader 
     HasSelectedItems="@_selectedItems.Any()" 
     SelectedItemsCount="@_selectedItems.Count" 
@@ -21,6 +22,7 @@
     OnOpenAddDeviceDialog="OpenAddDeviceDialog"
 />
 
+<!-- Main content area with loading state and list views -->
 @if (_loading)
 {
     <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-7" />
@@ -31,6 +33,7 @@ else if (!_devices.Any())
 }
 else
 {
+    <!-- Mobile View: Card based list -->
     <DeviceMobileList 
         Devices="@_devices" 
         IsBackingUp="@_isBackingUp"
@@ -43,6 +46,7 @@ else
         OnDeleteDevice="DeleteDevice"
     />
 
+    <!-- Desktop View: Table/DataGrid based list -->
     <DeviceDataGrid 
         Devices="@_devices" 
         @bind-SelectedItems="_selectedItems"
@@ -61,8 +65,12 @@ else
     private List<Device> _devices = new();
     private HashSet<Device> _selectedItems = new();
     private bool _loading = true;
+    
+    // Tracks which devices are currently being backed up to show progress spinners
     private HashSet<int> _isBackingUp = new();
     private bool _isMassBackingUp = false;
+    
+    // Filter state
     private string _searchString = "";
     private DeviceType? _filterType;
     private AppSettings? _settings;
@@ -78,7 +86,7 @@ else
         _settings = await Context.Settings.FindAsync(1);
     }
     
-    // QuickFilter for DataGrid
+    // QuickFilter used by the MudDataGrid for client-side filtering
     private Func<Device, bool> _quickFilter => x =>
     {
         if (string.IsNullOrWhiteSpace(_searchString))
@@ -96,6 +104,7 @@ else
         return false;
     };
 
+    // Filter logic for the custom Mobile list view
     private bool FilterDevices(Device device)
     {
         // Type Filter
@@ -112,6 +121,7 @@ else
     private async Task LoadDevices()
     {
         _loading = true;
+        // Include Backups to show count and last backup status
         _devices = await Context.Devices.Include(d => d.Backups).ToListAsync();
         _loading = false;
     }
@@ -120,6 +130,8 @@ else
     {
         NavigationManager.NavigateTo($"backups/{deviceId}");
     }
+
+    // ... Dialog opening methods ...
 
     private async Task OpenScanDialog()
     {
@@ -164,6 +176,7 @@ else
          }
     }
 
+    // Triggers a backup for a single device and handles UI state
     private async Task BackupDevice(Device device)
     {
         if (_isBackingUp.Contains(device.Id)) return;
@@ -213,6 +226,7 @@ else
 
     private async Task DeleteDevice(Device device)
     {
+        // Prevent deletion if locked backups exist
         bool hasLockedBackups = device.Backups.Any(b => b.IsLocked);
         if (hasLockedBackups)
         {
@@ -246,6 +260,7 @@ else
     {
         if (!_selectedItems.Any()) return;
 
+        // Check for locked backups across all selected devices
         var devicesWithLockedBackups = _selectedItems.Where(d => d.Backups.Any(b => b.IsLocked)).ToList();
         if (devicesWithLockedBackups.Any())
         {
@@ -280,6 +295,7 @@ else
         }
     }
 
+    // Helper to physically delete backup files if they are not referenced by other backups
     private async Task ExecuteFileCleanup(Backup backup)
     {
         try
@@ -303,6 +319,7 @@ else
         }
     }
 }
+
 
 
 

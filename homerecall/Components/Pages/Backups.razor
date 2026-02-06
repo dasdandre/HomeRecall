@@ -13,6 +13,7 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">@String.Format(L["Backups_Title"], _device?.Name ?? "Laden...")</MudText>
 
+<!-- Action Bar (Breadcrumbs & Delete Selected) -->
 <div class="d-flex justify-space-between align-center mb-4">
     <MudBreadcrumbs Items="_breadcrumbs" Class="pa-0"></MudBreadcrumbs>
     @if (_selectedItems.Any())
@@ -27,12 +28,14 @@
     }
 </div>
 
+<!-- Main Content Area -->
 @if (_device == null)
 {
     <MudProgressCircular Color="Color.Default" Indeterminate="true" />
 }
 else
 {
+    <!-- Mobile View: Card List -->
     <BackupMobileList 
         Backups="@_device.Backups.ToList()"
         OnUpdateNote="UpdateNote"
@@ -41,6 +44,7 @@ else
         OnDeleteBackup="DeleteBackup"
     />
 
+    <!-- Desktop View: Table -->
     <BackupTable 
         Backups="@_device.Backups.ToList()"
         @bind-SelectedItems="_selectedItems"
@@ -87,6 +91,7 @@ else
         await Context.SaveChangesAsync();
     }
 
+    // Handles note updates from both Mobile and Desktop views
     private async Task UpdateNote((Backup backup, string note) args)
     {
         args.backup.Note = args.note;
@@ -136,9 +141,10 @@ else
         }
     }
 
+    // Physically removes file and database entry
     private async Task ExecuteDelete(Backup backup)
     {
-        // Check if file is used by others
+        // Check if file is used by others (deduplication check)
         var otherBackupsUsingFile = await Context.Backups
             .AnyAsync(b => b.StoragePath == backup.StoragePath && b.Id != backup.Id);
 
@@ -161,4 +167,5 @@ else
         NavigationManager.NavigateTo($"api/DownloadBackup/{backup.Id}", true);
     }
 }
+
 
