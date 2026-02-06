@@ -4,6 +4,8 @@ public class DiscoveredDevice
 {
     public string IpAddress { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string? Hostname { get; set; }
+    public string? MacAddress { get; set; }
     public DeviceType Type { get; set; }
     public string FirmwareVersion { get; set; } = string.Empty;
 }

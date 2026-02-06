@@ -29,6 +29,8 @@ public class ShellyStrategy : IDeviceStrategy
                         IpAddress = ip, 
                         Type = DeviceType.Shelly, 
                         Name = name, 
+                        Hostname = settings.Device?.Hostname,
+                        MacAddress = settings.Device?.Mac,
                         FirmwareVersion = "Gen1" // Firmware version is in /status or /shelly usually
                     };
                 }
@@ -44,6 +46,7 @@ public class ShellyStrategy : IDeviceStrategy
                         IpAddress = ip, 
                         Type = DeviceType.Shelly, 
                         Name = $"Shelly-Locked-{ip.Split('.').Last()}", 
+                        MacAddress = info.Mac,
                         FirmwareVersion = "Gen1" 
                     };
                 }
@@ -76,11 +79,12 @@ public class ShellyStrategy : IDeviceStrategy
         public string? Name { get; set; }
         public ShellyDevice? Device { get; set; }
     }
-    private class ShellyDevice { public string? Hostname { get; set; } }
+    private class ShellyDevice { public string? Hostname { get; set; } public string? Mac { get; set; } }
     
     private class ShellyInfo 
     { 
         public string? Type { get; set; } 
         public string? Fw { get; set; }
+        public string? Mac { get; set; }
     }
 }

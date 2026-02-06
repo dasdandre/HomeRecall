@@ -47,5 +47,8 @@ public class OpenDtuStrategy : IDeviceStrategy
     { 
         public string? Version { get; set; } 
         public string? Hostname { get; set; }
+        // OpenDTU (at least recent versions) provides network info with MAC in /api/network/status or similar, 
+        // but /api/system/status might not have it directly. 
+        // We will stick to what's available for now, maybe add a network call if needed.
     }
 }

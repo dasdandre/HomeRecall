@@ -11,15 +11,16 @@ public class OpenHaspStrategy : IDeviceStrategy
             var response = await httpClient.GetAsync($"http://{ip}/json");
             if (response.IsSuccessStatusCode)
             {
-                 var json = await response.Content.ReadAsStringAsync();
-                 if (json.Contains("\"version\"") && json.Contains("\"model\""))
+                 var info = await httpClient.GetFromJsonAsync<OpenHaspInfo>($"http://{ip}/json");
+                 if (info?.Version != null)
                  {
                      return new DiscoveredDevice 
                      { 
                          IpAddress = ip, 
                          Type = DeviceType.OpenHasp, 
                          Name = $"OpenHasp-{ip.Split('.').Last()}", 
-                         FirmwareVersion = "Detected" 
+                         MacAddress = info.Mac,
+                         FirmwareVersion = info.Version 
                      };
                  }
             }
@@ -59,5 +60,5 @@ public class OpenHaspStrategy : IDeviceStrategy
         return new DeviceBackupResult(files, version);
     }
     
-    private class OpenHaspInfo { public string? Version { get; set; } }
+    private class OpenHaspInfo { public string? Version { get; set; } public string? Mac { get; set; } }
 }

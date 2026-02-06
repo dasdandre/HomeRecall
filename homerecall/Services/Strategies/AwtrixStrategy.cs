@@ -19,6 +19,7 @@ public class AwtrixStrategy : IDeviceStrategy
                          IpAddress = ip, 
                          Type = DeviceType.Awtrix, 
                          Name = $"Awtrix-{ip.Split('.').Last()}", 
+                         // Awtrix API doesn't expose MAC easily in /api/stats (it has WiFi signal etc but not MAC usually visible)
                          FirmwareVersion = "Detected" 
                      };
                  }

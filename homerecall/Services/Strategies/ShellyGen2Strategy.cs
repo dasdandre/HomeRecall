@@ -24,6 +24,7 @@ public class ShellyGen2Strategy : IDeviceStrategy
                     IpAddress = ip, 
                     Type = DeviceType.ShellyGen2, 
                     Name = name, 
+                    MacAddress = info.Mac,
                     FirmwareVersion = version 
                 };
             }
@@ -56,6 +57,7 @@ public class ShellyGen2Strategy : IDeviceStrategy
         [JsonPropertyName("name")] public string? Name { get; set; } // User name
         [JsonPropertyName("id")] public string? Id { get; set; } // Device ID
         [JsonPropertyName("app")] public string? App { get; set; } // Model
+        [JsonPropertyName("mac")] public string? Mac { get; set; }
         [JsonPropertyName("gen")] public int? Gen { get; set; }
     }
 }

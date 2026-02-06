@@ -55,6 +55,19 @@ public class TasmotaStrategy : IDeviceStrategy
                         var host = status?.StatusNET?.Hostname ?? status?.Status?.Hostname;
                         if (!IsDefault(host)) name = host!;
                     }
+
+                    string? hostname = status?.StatusNET?.Hostname ?? status?.Status?.Hostname;
+                    string? mac = status?.StatusNET?.Mac;
+
+                    return new DiscoveredDevice
+                    {
+                        IpAddress = ip,
+                        Type = DeviceType.Tasmota,
+                        Name = name,
+                        Hostname = hostname,
+                        MacAddress = mac,
+                        FirmwareVersion = status2.StatusFWR.Version
+                    };
                 }
                 catch { }
 
@@ -101,5 +114,5 @@ public class TasmotaStrategy : IDeviceStrategy
         public List<string>? FriendlyName { get; set; }
         public string? Hostname { get; set; }
     }
-    private class StatusNet { public string? Hostname { get; set; } }
+    private class StatusNet { public string? Hostname { get; set; } public string? Mac { get; set; } }
 }

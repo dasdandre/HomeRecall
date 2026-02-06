@@ -19,6 +19,7 @@ public class WledStrategy : IDeviceStrategy
                     IpAddress = ip, 
                     Type = DeviceType.Wled, 
                     Name = name, 
+                    MacAddress = info.Mac,
                     FirmwareVersion = info.Ver 
                 };
             }
@@ -56,6 +57,7 @@ public class WledStrategy : IDeviceStrategy
     { 
         public string? Ver { get; set; } 
         public string? Name { get; set; }
+        public string? Mac { get; set; }
         public object? Leds { get; set; }
     }
 }

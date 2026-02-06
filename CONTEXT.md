@@ -91,3 +91,9 @@ This is a critical aspect of the application configuration.
 - **Refactoring:** Split monolithic `Home.razor` and `Backups.razor` into smaller, maintainable sub-components (`HomeComponents/`, `BackupComponents/`) separating Mobile (Cards) and Desktop (DataGrid) views.
 - **Theming:** Removed complex JS-based dynamic theme syncing with Home Assistant. Now uses robust static colors and native System Dark Mode detection.
 - **Code Clean:** Removed obsolete method calls in `MudThemeProvider`.
+- **UI:** Improved Desktop DataGrid layout with compact `MudButtonGroup` and colored `MudChips` for device types.
+
+## Future Plans
+- **Connectivity:** Transition from IP-only to MAC-Address based identification ("Self-Healing" connections).
+- **Discovery:** Implement mDNS (Multicast DNS) for active device discovery and hostname resolution.
+- **Data Model:** Extend `Device` to store `MacAddress` and `Hostname` alongside `IpAddress`.

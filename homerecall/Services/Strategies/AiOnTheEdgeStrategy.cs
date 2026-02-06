@@ -20,6 +20,7 @@ public class AiOnTheEdgeStrategy : IDeviceStrategy
                         IpAddress = ip,
                         Type = DeviceType.AiOnTheEdge,
                         Name = $"AiEdge-{ip.Split('.').Last()}",
+                        // MAC address requires /api/system or parsing the Overview page
                         FirmwareVersion = "Detected"
                     };
                 }
