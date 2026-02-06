@@ -1,11 +1,11 @@
-ip# HomeRecall Context
+# HomeRecall Context
 
 ## Project Overview
 HomeRecall is a **.NET 10** Blazor Server application designed to backup configurations and data from various IoT devices commonly used in smart homes. It is specifically optimized to run as a Home Assistant Add-on but can also run standalone via Docker.
 
 ## Tech Stack
 - **Framework:** .NET 10 (ASP.NET Core Blazor Server)
-- **UI Library:** MudBlazor
+- **UI Library:** MudBlazor (Standard Material Design with HA Colors)
 - **Database:** SQLite (using Entity Framework Core)
 - **Containerization:** Docker
 
@@ -54,19 +54,21 @@ This is a critical aspect of the application configuration.
 - **Path Base:** Home Assistant Ingress serves the app under a dynamic sub-path.
   - **Middleware:** `Program.cs` reads the `X-Ingress-Path` header to set `context.Request.PathBase`.
   - **Blazor Base:** `App.razor` dynamically calculates the `<base href="..." />` tag using the `X-Ingress-Path` header or falls back to `NavigationManager.BaseUri`.
-  - **Navigation:** Links must be relative or correctly resolved. `NavigationManager.NavigateTo` generally handles relative paths well, but explicit URI construction (like for Breadcrumbs) must use `NavigationManager.ToAbsoluteUri()`.
-- **Theming:**
-  - `MainLayout.razor` uses JS Interop (`wwwroot/js/ha-theme.js`) to read Home Assistant's current colors and dark/light mode, applying them to the MudBlazor theme dynamically.
+  - **Theming:**
+    - `MainLayout.razor` applies static "Home Assistant Blue" colors to match the default HA theme.
+    - Automatic System Dark Mode detection is enabled via `MudThemeProvider`.
 
 ## Key Files & Directories
 - `homerecall/`
   - `Program.cs`: App entry point, Service registration, Middleware config (Ingress).
   - `Components/`
     - `App.razor`: Root component, handles `<base href>` logic.
-    - `Layout/MainLayout.razor`: Global layout, Theme sync logic.
+    - `Layout/MainLayout.razor`: Global layout, Theme logic.
     - `Pages/`:
-      - `Home.razor`: Dashboard, Device list.
-      - `Backups.razor`: Backup history for a specific device.
+      - `Home.razor`: Dashboard Controller.
+        - `HomeComponents/`: `DeviceActionsHeader`, `DeviceMobileList` (Cards), `DeviceDataGrid` (Table).
+      - `Backups.razor`: Backup history Controller.
+        - `BackupComponents/`: `BackupMobileList`, `BackupTable`.
       - `Settings.razor`: Global settings.
   - `Services/`:
     - `BackupService.cs`: Core logic described above.
@@ -85,6 +87,7 @@ This is a critical aspect of the application configuration.
 - **Data Storage:**
   - **Home Assistant:** Uses `/data` volume for persistence. Backups stored in `/data/backups` are automatically included in Home Assistant's full snapshots.
 
-## Recent Focus
-- **Device Strategies:** Improved Tasmota strategy to probe for Friendly Name, Device Name, or Hostname instead of generic naming.
-- **Breadcrumb Navigation:** Fixed absolute path generation for Breadcrumbs to work correctly with Home Assistant Ingress using `NavigationManager.ToAbsoluteUri`.
+## Recent Changes
+- **Refactoring:** Split monolithic `Home.razor` and `Backups.razor` into smaller, maintainable sub-components (`HomeComponents/`, `BackupComponents/`) separating Mobile (Cards) and Desktop (DataGrid) views.
+- **Theming:** Removed complex JS-based dynamic theme syncing with Home Assistant. Now uses robust static colors and native System Dark Mode detection.
+- **Code Clean:** Removed obsolete method calls in `MudThemeProvider`.

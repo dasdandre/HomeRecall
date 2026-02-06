@@ -2,6 +2,7 @@
 @using HomeRecall.Services
 @using Microsoft.Extensions.Localization
 @using Microsoft.EntityFrameworkCore
+@using HomeRecall.Components
 @inject IStringLocalizer<SharedResource> L
 @inject BackupContext Context
 
@@ -40,7 +41,7 @@
                             <MudLink Href="@($"http://{device.IpAddress}")" Target="_blank" Underline="Underline.Hover">@device.IpAddress</MudLink>
                         </CardHeaderContent>
                         <CardHeaderActions>
-                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@device.Type</MudChip>
+                            <MudChip T="string" Color="@UiHelpers.GetColorForDeviceType(device.Type)" Size="Size.Small" Variant="Variant.Text">@device.Type</MudChip>
                         </CardHeaderActions>
                     </MudCardHeader>
                     <MudCardContent>

@@ -2,30 +2,40 @@
 @using HomeRecall.Services
 @using Microsoft.Extensions.Localization
 @using Humanizer
+@using HomeRecall.Components
 @inject IStringLocalizer<SharedResource> L
 
+<!-- Desktop View: DataGrid -->
+<!-- Displayed on large screens (md and up) -->
 <MudHidden Breakpoint="Breakpoint.SmAndDown">
     <MudDataGrid Items="@Devices" MultiSelection="true" SelectedItems="SelectedItems" SelectedItemsChanged="SelectedItemsChanged" Hover="true" Elevation="3" Filterable="true" SortMode="SortMode.Multiple" QuickFilter="@QuickFilter">
         <ToolBarContent>
             <MudText Typo="Typo.h6">@L["Devices_Title"]</MudText>
             <MudSpacer />
+            <!-- Global Search Field -->
             <MudTextField Value="@SearchString" ValueChanged="@(new Func<string, Task>(OnSearchChanged))" Placeholder="@L["Common_Search"]" Adornment="Adornment.Start" Immediate="true"
                 AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
         </ToolBarContent>
         <Columns>
             <SelectColumn T="Device" />
+            
             <PropertyColumn Property="x => x.Name" Title="@L["Devices_Table_Name"]" Filterable="false" />
+            
             <PropertyColumn Property="x => x.IpAddress" Title="@L["Devices_Table_IpAddress"]" Filterable="false">
                 <CellTemplate>
                         <MudLink Href="@($"http://{context.Item.IpAddress}")" Target="_blank" Underline="Underline.Hover">@context.Item.IpAddress</MudLink>
                 </CellTemplate>
             </PropertyColumn>
+            
             <PropertyColumn Property="x => x.Type" Title="@L["Devices_Table_Type"]">
                 <CellTemplate>
-                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@context.Item.Type</MudChip>
+                    <MudChip T="string" Color="@UiHelpers.GetColorForDeviceType(context.Item.Type)" Size="Size.Small" Variant="Variant.Text">@context.Item.Type</MudChip>
                 </CellTemplate>
             </PropertyColumn>
+            
             <PropertyColumn Property="x => x.CurrentFirmwareVersion" Title="Firmware" Filterable="false" />
+            
+            <!-- Last Backup Column (includes status icons) -->
             <PropertyColumn Property="x => x.LastBackup" Title="@L["Devices_Table_LastBackup"]">
                     <CellTemplate>
                     <div class="d-flex align-center gap-2">
@@ -63,39 +73,37 @@
                     </div>
                     </CellTemplate>
             </PropertyColumn>
+
+            <!-- Action Buttons Column -->
             <TemplateColumn Sortable="false" Filterable="false">
                 <CellTemplate>
-                        <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
-                        <MudButton Variant="Variant.Outlined" 
-                            Color="Color.Primary" 
-                            Size="Size.Small" 
-                            StartIcon="@(IsBackingUp.Contains(context.Item.Id) ? null : Icons.Material.Filled.Backup)"
-                            Disabled="@(IsBackingUp.Contains(context.Item.Id))"
-                            OnClick="@(() => OnBackupDevice.InvokeAsync(context.Item))">
-                                @if (IsBackingUp.Contains(context.Item.Id))
-                                {
-                                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
-                                    <MudText Class="ms-2">@L["Common_BackupInProgress"]</MudText>
-                                }
-                                else
-                                {
-                                    <MudText>@L["Common_Backup"]</MudText>
-                                }
+                    <div class="d-flex justify-end w-100">
+                        <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">                           
+                            @if (IsBackingUp.Contains(context.Item.Id))
+                            {
+                                <MudButton Color="Color.Primary" Disabled="true">
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                </MudButton>
+                            }
+                            else
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Save"
+                                               Color="Color.Primary"
+                                               OnClick="@(() => OnBackupDevice.InvokeAsync(context.Item))" />
+                            }
+                        
+                            <MudButton Color="Color.Secondary"
+                                       StartIcon="@Icons.Material.Filled.History"
+                                       OnClick="@(() => OnNavigateToBackups.InvokeAsync(context.Item.Id))">
+                                @(context.Item.Backups.Count > 0 ? context.Item.Backups.Count.ToString() : "-")
                             </MudButton>
 
-                        <MudButton Variant="Variant.Outlined"
-                                    Color="Color.Secondary"
-                                    Size="Size.Small"
-                                    StartIcon="@Icons.Material.Filled.History"
-                                    OnClick="@(() => OnNavigateToBackups.InvokeAsync(context.Item.Id))">
-                            @L["Common_Backups"] (@context.Item.Backups.Count)
-                        </MudButton>
-
-                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                            <MudMenu Icon="@Icons.Material.Filled.ArrowDropDown" Size="Size.Small" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Style="align-self: auto;">
                                 <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => OnEditDevice.InvokeAsync(context.Item))">@L["Common_Edit"]</MudMenuItem>
                                 <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => OnDeleteDevice.InvokeAsync(context.Item))" IconColor="Color.Error">@L["Common_Delete"]</MudMenuItem>
-                        </MudMenu>
-                    </MudStack>
+                            </MudMenu>                          
+                        </MudButtonGroup>
+                    </div>
                 </CellTemplate>
             </TemplateColumn>
         </Columns>
@@ -114,6 +122,7 @@
     [Parameter] public Func<Device, bool> QuickFilter { get; set; } = _ => true;
     [Parameter] public AppSettings? Settings { get; set; }
 
+    // Action Callbacks
     [Parameter] public EventCallback<Device> OnBackupDevice { get; set; }
     [Parameter] public EventCallback<int> OnNavigateToBackups { get; set; }
     [Parameter] public EventCallback<Device> OnEditDevice { get; set; }
