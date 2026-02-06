@@ -1,129 +1,124 @@
 @using HomeRecall
 @using HomeRecall.Services
 @using Microsoft.Extensions.Localization
-@using Humanizer
+@using Microsoft.EntityFrameworkCore
 @inject IStringLocalizer<SharedResource> L
+@inject BackupContext Context
 
-<!-- Desktop View: DataGrid -->
-<!-- Displayed on large screens (md and up) -->
-<MudHidden Breakpoint="Breakpoint.SmAndDown">
-    <MudDataGrid Items="@Devices" MultiSelection="true" SelectedItems="SelectedItems" SelectedItemsChanged="SelectedItemsChanged" Hover="true" Elevation="3" Filterable="true" SortMode="SortMode.Multiple" QuickFilter="@QuickFilter">
-        <ToolBarContent>
-            <MudText Typo="Typo.h6">@L["Devices_Title"]</MudText>
-            <MudSpacer />
-            <!-- Global Search Field -->
-            <MudTextField Value="@SearchString" ValueChanged="@(new Func<string, Task>(OnSearchChanged))" Placeholder="@L["Common_Search"]" Adornment="Adornment.Start" Immediate="true"
-                AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-        </ToolBarContent>
-        <Columns>
-            <SelectColumn T="Device" />
-            
-            <PropertyColumn Property="x => x.Name" Title="@L["Devices_Table_Name"]" Filterable="false" />
-            
-            <PropertyColumn Property="x => x.IpAddress" Title="@L["Devices_Table_IpAddress"]" Filterable="false">
-                <CellTemplate>
-                        <MudLink Href="@($"http://{context.Item.IpAddress}")" Target="_blank" Underline="Underline.Hover">@context.Item.IpAddress</MudLink>
-                </CellTemplate>
-            </PropertyColumn>
-            
-            <PropertyColumn Property="x => x.Type" Title="@L["Devices_Table_Type"]">
-                <CellTemplate>
-                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@context.Item.Type</MudChip>
-                </CellTemplate>
-            </PropertyColumn>
-            
-            <PropertyColumn Property="x => x.CurrentFirmwareVersion" Title="Firmware" Filterable="false" />
-            
-            <!-- Last Backup Column (includes status icons) -->
-            <PropertyColumn Property="x => x.LastBackup" Title="@L["Devices_Table_LastBackup"]">
-                    <CellTemplate>
-                    <div class="d-flex align-center gap-2">
-                        @if (context.Item.AutoBackupOverride == false)
-                        {
-                            <MudTooltip Text="@L["Devices_AutoBackup_Excluded"]">
-                                <div class="d-flex align-center">
-                                    <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Color="Color.Default" Size="Size.Small" />
-                                </div>
-                            </MudTooltip>
-                        }
-                        @if (context.Item.BackupFailures > 0)
-                        {
-                            <MudTooltip Text="@L["Devices_Backup_Failure_LastFailed"]">
-                                <div class="d-flex align-center">
-                                    <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" />
-                                </div>
-                            </MudTooltip>
-                        }
-                        
-                        @if (context.Item.LastBackup.HasValue)
-                        {
-                            var daysSince = (DateTime.UtcNow - context.Item.LastBackup.Value).TotalDays;
-                            var color = daysSince > 30 ? Color.Error : (daysSince > 7 ? Color.Warning : Color.Default);
+<!-- Mobile View: Card List -->
+<!-- Displayed on small screens only -->
+<MudHidden Breakpoint="Breakpoint.MdAndUp">
+    
+    <!-- Filter Controls for Mobile -->
+    <MudGrid class="mb-4">
+        <MudItem xs="8">
+            <MudTextField @bind-Value="SearchString" 
+                         TextChanged="OnSearchChanged"
+                         Adornment="Adornment.Start" 
+                         AdornmentIcon="@Icons.Material.Filled.Search" 
+                         IconSize="Size.Medium"></MudTextField>                    
+        </MudItem>    
+        <MudItem xs="4">
+            <MudSelect T="DeviceType?" Value="FilterType" ValueChanged="OnFilterChanged" Clearable="true" Placeholder="@L["Devices_Table_Type"]">
+                @foreach (DeviceType type in Enum.GetValues(typeof(DeviceType)))
+                {
+                    <MudSelectItem Value="(DeviceType?)type">@type</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+    </MudGrid>           
+
+    <!-- Device Cards -->
+    <MudGrid Class="mb-4">
+        @foreach (var device in Devices.Where(FilterFunc))
+        {
+            <MudItem xs="12">
+                <MudCard Elevation="3">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">@device.Name</MudText>
+                            <MudLink Href="@($"http://{device.IpAddress}")" Target="_blank" Underline="Underline.Hover">@device.IpAddress</MudLink>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@device.Type</MudChip>
+                        </CardHeaderActions>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <!-- Status Info (Firmware, AutoBackup, Backup Age) -->
+                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.body2">Firmware: @(device.CurrentFirmwareVersion ?? "-")</MudText>
                             
                             <div class="d-flex align-center gap-1">
+                                <!-- Auto Backup Excluded Icon -->
+                                @if (device.AutoBackupOverride == false)
+                                {
+                                    <MudTooltip Text="@L["Devices_AutoBackup_Excluded"]">
+                                        <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Color="Color.Default" Size="Size.Small" />
+                                    </MudTooltip>
+                                }
+                                <!-- Failure Icon -->
+                                @if (device.BackupFailures > 0)
+                                {
+                                    <MudTooltip Text="@L["Devices_Backup_Failure_LastFailed"]">
+                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" />
+                                    </MudTooltip>
+                                }
+                                
+                                <!-- Last Backup Time -->
+                                @if (device.LastBackup.HasValue)
+                                {
+                                    var daysSince = (DateTime.UtcNow - device.LastBackup.Value).TotalDays;
+                                    var color = daysSince > 30 ? Color.Error : (daysSince > 7 ? Color.Warning : Color.Default);
+                                    
                                     <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="@color"/>
-                                    <MudText Typo="Typo.body2">@FormatDate(context.Item.LastBackup)</MudText>
+                                    <MudText Typo="Typo.body2">@device.LastBackup.Value.ToLocalTime().ToString("g")</MudText>
+                                }
                             </div>
-                        }
-                        else
-                        {
-                            <MudText Typo="Typo.body2" Color="Color.Default">-</MudText>
-                        }
-                    </div>
-                    </CellTemplate>
-            </PropertyColumn>
-
-            <!-- Action Buttons Column -->
-            <TemplateColumn Sortable="false" Filterable="false">
-                <CellTemplate>
-                        <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
-                        <MudButton Variant="Variant.Outlined" 
-                            Color="Color.Primary" 
-                            Size="Size.Small" 
-                            StartIcon="@(IsBackingUp.Contains(context.Item.Id) ? null : Icons.Material.Filled.Backup)"
-                            Disabled="@(IsBackingUp.Contains(context.Item.Id))"
-                            OnClick="@(() => OnBackupDevice.InvokeAsync(context.Item))">
-                                @if (IsBackingUp.Contains(context.Item.Id))
-                                {
-                                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
-                                    <MudText Class="ms-2">@L["Common_BackupInProgress"]</MudText>
-                                }
-                                else
-                                {
-                                    <MudText>@L["Common_Backup"]</MudText>
-                                }
-                            </MudButton>
-
-                        <MudButton Variant="Variant.Outlined"
-                                    Color="Color.Secondary"
-                                    Size="Size.Small"
-                                    StartIcon="@Icons.Material.Filled.History"
-                                    OnClick="@(() => OnNavigateToBackups.InvokeAsync(context.Item.Id))">
-                            @L["Common_Backups"] (@context.Item.Backups.Count)
+                        </MudStack>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <!-- Action Buttons: Backup, History, Menu (Edit/Delete) -->
+                        <MudButton Variant="Variant.Text" 
+                                   Color="Color.Primary" 
+                                   StartIcon="@(IsBackingUp.Contains(device.Id) ? null : Icons.Material.Filled.Backup)"
+                                   Disabled="@(IsBackingUp.Contains(device.Id))"
+                                   OnClick="@(() => OnBackupDevice.InvokeAsync(device))">
+                            @if (IsBackingUp.Contains(device.Id))
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                            }
+                            else
+                            {
+                                @L["Common_Backup"]
+                            }
                         </MudButton>
-
-                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                                <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => OnEditDevice.InvokeAsync(context.Item))">@L["Common_Edit"]</MudMenuItem>
-                                <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => OnDeleteDevice.InvokeAsync(context.Item))" IconColor="Color.Error">@L["Common_Delete"]</MudMenuItem>
+                        <MudButton Variant="Variant.Text" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.History" OnClick="@(() => OnNavigateToBackups.InvokeAsync(device.Id))">
+                            @L["Common_Backups"] (@device.Backups.Count)
+                        </MudButton>
+                        <MudSpacer />
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert">
+                            <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => OnEditDevice.InvokeAsync(device))">@L["Common_Edit"]</MudMenuItem>
+                            <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => OnDeleteDevice.InvokeAsync(device))" IconColor="Color.Error">@L["Common_Delete"]</MudMenuItem>
                         </MudMenu>
-                    </MudStack>
-                </CellTemplate>
-            </TemplateColumn>
-        </Columns>
-    </MudDataGrid>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
 </MudHidden>
 
 @code {
     [Parameter] public List<Device> Devices { get; set; } = new();
-    [Parameter] public HashSet<Device> SelectedItems { get; set; } = new();
-    [Parameter] public EventCallback<HashSet<Device>> SelectedItemsChanged { get; set; }
-
     [Parameter] public HashSet<int> IsBackingUp { get; set; } = new();
+    
+    // Filtering Parameters
     [Parameter] public string SearchString { get; set; } = "";
     [Parameter] public EventCallback<string> SearchStringChanged { get; set; }
 
-    [Parameter] public Func<Device, bool> QuickFilter { get; set; } = _ => true;
-    [Parameter] public AppSettings? Settings { get; set; }
+    [Parameter] public DeviceType? FilterType { get; set; }
+    [Parameter] public EventCallback<DeviceType?> FilterTypeChanged { get; set; }
+
+    [Parameter] public Func<Device, bool> FilterFunc { get; set; } = _ => true;
 
     // Action Callbacks
     [Parameter] public EventCallback<Device> OnBackupDevice { get; set; }
@@ -137,17 +132,9 @@
         await SearchStringChanged.InvokeAsync(value);
     }
 
-    private string FormatDate(DateTime? date)
+    private async Task OnFilterChanged(DeviceType? value)
     {
-        if (!date.HasValue) return "-";
-        
-        if (Settings?.UseRelativeTime == true)
-        {
-            return date.Value.Humanize(); 
-        }
-        else
-        {
-            return date.Value.ToLocalTime().ToString("g");
-        }
+        FilterType = value;
+        await FilterTypeChanged.InvokeAsync(value);
     }
 }

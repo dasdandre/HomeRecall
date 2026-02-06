@@ -6,7 +6,7 @@
 @using Microsoft.Extensions.Localization
 @inject IStringLocalizer<SharedResource> L
 
-<MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
+<MudThemeProvider @ref="_mudThemeProvider" @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -46,19 +46,67 @@
 @code {
     private MudTheme _theme = new MudTheme();
     private bool _isDarkMode = false;
-    private DotNetObjectReference<MainLayout>? _objRef;
+    private MudThemeProvider _mudThemeProvider = null!;
     private int _activeTab = 0;
 
-    protected override void OnInitialized()
+        protected override async Task OnInitializedAsync()
     {
-        // Set Default HA Colors immediately to avoid flickering
-        _theme.PaletteLight.Primary = "#03a9f4";
-        _theme.PaletteLight.AppbarBackground = "#03a9f4";
-        _theme.PaletteDark.Primary = "#03a9f4";
-        _theme.PaletteDark.AppbarBackground = "#03a9f4";
+        // Define standard HA Colors
+        _theme.PaletteLight = new PaletteLight
+        {
+            Primary = "#03a9f4",
+            Secondary = "#ff9800",
+            AppbarBackground = "#03a9f4",
+            AppbarText = "#ffffff",
+            Background = "#fafafa",
+            Surface = "#ffffff",
+            TextPrimary = "#212121",
+            TextSecondary = "#727272",
+            DrawerBackground = "#ffffff",
+            DrawerText = "#212121"
+        };
+
+        _theme.PaletteDark = new PaletteDark
+        {
+            Primary = "#03a9f4",
+            Secondary = "#ff9800",
+            AppbarBackground = "#101e24", // Slightly darker for dark mode
+            AppbarText = "#ffffff",
+            Background = "#111111",
+            Surface = "#1e1e1e",
+            TextPrimary = "#e1e1e1",
+            TextSecondary = "#b0b0b0",
+            DrawerBackground = "#1e1e1e",
+            DrawerText = "#e1e1e1"
+        };
 
         NavigationManager.LocationChanged += OnLocationChanged;
         UpdateActiveTab(NavigationManager.Uri);
+        await Task.CompletedTask;
+    }
+    
+            protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _mudThemeProvider != null)
+        {
+            try
+            {
+                _isDarkMode = await _mudThemeProvider.GetSystemDarkModeAsync();
+                await _mudThemeProvider.WatchSystemDarkModeAsync(OnSystemPreferenceChanged);
+                StateHasChanged();
+            }
+            catch(Exception)
+            {
+                // Ignore JS Interop errors if prerendering or disconnected
+            }
+        }
+    }
+
+    private Task OnSystemPreferenceChanged(bool newValue)
+    {
+        _isDarkMode = newValue;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -91,107 +139,8 @@
         else if (index == 1) NavigationManager.NavigateTo("settings");
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            try
-            {
-                _objRef = DotNetObjectReference.Create(this);
-
-                // Call JS immediately to get colors
-                await ApplyHomeAssistantColors();
-
-                // Then set up observer
-                await JS.InvokeVoidAsync("observeHaThemeChange", _objRef);
-            }
-            catch (Exception)
-            {
-                // JS Interop might fail if connection not ready, but usually fine in OnAfterRenderAsync
-            }
-        }
-    }
-
-    private async Task ApplyHomeAssistantColors()
-    {
-        try
-        {
-            var colors = await JS.InvokeAsync<HaColors>("getHaColors");
-            UpdateTheme(colors);
-            StateHasChanged();
-        }
-        catch (Exception)
-        {
-            // Ignore errors during theme application
-        }
-    }
-
-    [JSInvokable]
-    public void UpdateThemeFromJs(HaColors colors)
-    {
-        UpdateTheme(colors);
-        StateHasChanged();
-    }
-
-    private void UpdateTheme(HaColors colors)
-    {
-        _isDarkMode = colors.IsDarkMode;
-
-        // Apply HA colors to both palettes - MudBlazor handles mode switching
-        // We set both to the received colors because HA sends us the *current* active colors.
-        // Whether it's dark or light in HA, that's the color set we want to use right now.
-
-        var palette = new PaletteLight
-        {
-            Primary = colors.Primary,
-            Secondary = colors.Secondary,
-            AppbarBackground = colors.AppBarBackground,
-            AppbarText = colors.AppBarText,
-            Background = colors.Background,
-            Surface = colors.Surface,
-            TextPrimary = colors.TextPrimary,
-            TextSecondary = colors.TextSecondary,
-            DrawerBackground = colors.DrawerBackground,
-            DrawerText = colors.DrawerText
-        };
-
-        // We apply the same colors to both palettes so that whichever mode MudBlazor is in,
-        // it matches what HA is currently showing.
-        _theme.PaletteLight = palette;
-
-        _theme.PaletteDark = new PaletteDark
-        {
-            Primary = colors.Primary,
-            Secondary = colors.Secondary,
-            AppbarBackground = colors.AppBarBackground,
-            AppbarText = colors.AppBarText,
-            Background = colors.Background,
-            Surface = colors.Surface,
-            TextPrimary = colors.TextPrimary,
-            TextSecondary = colors.TextSecondary,
-            DrawerBackground = colors.DrawerBackground,
-            DrawerText = colors.DrawerText
-        };
-    }
-
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
-        _objRef?.Dispose();
-    }
-
-    public class HaColors
-    {
-        public bool IsDarkMode { get; set; } = false;
-        public string Primary { get; set; } = "#03a9f4";
-        public string Secondary { get; set; } = "#ff9800";
-        public string Background { get; set; } = "#fafafa";
-        public string Surface { get; set; } = "#ffffff";
-        public string TextPrimary { get; set; } = "#212121";
-        public string TextSecondary { get; set; } = "#727272";
-        public string AppBarBackground { get; set; } = "#03a9f4";
-        public string AppBarText { get; set; } = "#ffffff";
-        public string DrawerBackground { get; set; } = "#ffffff";
-        public string DrawerText { get; set; } = "#212121";
     }
 }
