@@ -1,0 +1,44 @@
+@using HomeRecall
+@using HomeRecall.Services
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<SharedResource> L
+
+<div class="d-flex justify-space-between align-center mb-6">
+    <MudText Typo="Typo.h4">@L["Devices_Title"]</MudText>
+    <MudStack Row="true" Spacing="2">
+        @if (HasSelectedItems)
+        {
+            <MudButton Variant="Variant.Filled" 
+                        Color="Color.Primary" 
+                        StartIcon="@Icons.Material.Filled.Backup"
+                        Disabled="@IsMassBackingUp"
+                        OnClick="OnBackupSelected">
+                @(IsMassBackingUp ? L["Devices_MassBackup_Progress"] : $"{L["Devices_BackupSelected"]} ({SelectedItemsCount})")
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" 
+                        Color="Color.Error" 
+                        StartIcon="@Icons.Material.Filled.Delete"
+                        Disabled="@IsMassBackingUp"
+                        OnClick="OnDeleteSelected">
+                @L["Devices_DeleteSelected"] (@SelectedItemsCount)
+            </MudButton>
+        }
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="OnOpenScanDialog" StartIcon="@Icons.Material.Filled.Search">
+            @L["Devices_Scan"]
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnOpenAddDeviceDialog" StartIcon="@Icons.Material.Filled.Add">
+            @L["Devices_AddDevice"]
+        </MudButton>
+    </MudStack>
+</div>
+
+@code {
+    [Parameter] public bool HasSelectedItems { get; set; }
+    [Parameter] public int SelectedItemsCount { get; set; }
+    [Parameter] public bool IsMassBackingUp { get; set; }
+    
+    [Parameter] public EventCallback OnBackupSelected { get; set; }
+    [Parameter] public EventCallback OnDeleteSelected { get; set; }
+    [Parameter] public EventCallback OnOpenScanDialog { get; set; }
+    [Parameter] public EventCallback OnOpenAddDeviceDialog { get; set; }
+}

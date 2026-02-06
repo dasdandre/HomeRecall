@@ -1,0 +1,107 @@
+@using HomeRecall
+@using HomeRecall.Services
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<SharedResource> L
+
+<MudHidden Breakpoint="Breakpoint.SmAndDown">
+    <MudTable Items="@Backups.OrderByDescending(b => b.CreatedAt)"
+              MultiSelection="true"
+              SelectedItems="SelectedItems"
+              SelectedItemsChanged="SelectedItemsChanged"
+              Hover="true"
+              Elevation="3"
+              Loading="@Loading"
+              LoadingProgressColor="Color.Info">
+        <HeaderContent>
+            <MudTh>@L["Backups_Date"]</MudTh>
+            <MudTh>Firmware</MudTh>
+            <MudTh>@L["Backups_Checksum"]</MudTh>
+            <MudTh>Info</MudTh>
+            <MudTh>@L["Backups_Note"]</MudTh>
+            <MudTh>@L["Backups_Locked"]</MudTh>
+            <MudTh Style="text-align:right">@L["Devices_Table_Actions"]</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="@L["Backups_Date"]">@context.CreatedAt.ToLocalTime().ToString("g")</MudTd>
+            <MudTd DataLabel="Firmware">
+                @if (!string.IsNullOrEmpty(context.FirmwareVersion))
+                {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@context.FirmwareVersion</MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="@L["Backups_Checksum"]">
+                <code style="font-size: 0.8rem">@context.Sha1Checksum.Substring(0, Math.Min(8, context.Sha1Checksum.Length))</code>
+            </MudTd>
+            <MudTd DataLabel="Info">
+                    @if (IsDuplicateOfPrevious(context))
+                    {
+                        <MudTooltip Text="@L["Backups_ContentUnchanged"]">
+                        <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Default" Size="Size.Small" />
+                        </MudTooltip>
+                    }
+                    else
+                    {
+                        <MudTooltip Text="@L["Backups_ContentChanged"]">
+                        <MudIcon Icon="@Icons.Material.Filled.Update" Color="Color.Success" Size="Size.Small" />
+                        </MudTooltip>
+                    }
+            </MudTd>
+            <MudTd DataLabel="@L["Backups_Note"]">
+                    <MudTextField Value="@context.Note"
+                                ValueChanged="@((string s) => OnUpdateNote.InvokeAsync((context, s)))"
+                                Placeholder="@(L["Backups_Note"] + "...")"
+                                Margin="Margin.Dense"
+                                Variant="Variant.Text"/>
+            </MudTd>
+            <MudTd DataLabel="@L["Backups_Locked"]">
+                <MudTooltip Text="@L["Backups_Locked"]">
+                    <div>
+                        <MudToggleIconButton Toggled="@context.IsLocked"
+                                                ToggledChanged="@((bool b) => OnToggleLock.InvokeAsync(context))"
+                                                Icon="@Icons.Material.Outlined.LockOpen"
+                                                Color="@Color.Default"
+                                                ToggledIcon="@Icons.Material.Filled.Lock"
+                                                ToggledColor="@Color.Warning" />
+                    </div>
+                </MudTooltip>
+            </MudTd>
+            <MudTd DataLabel="@L["Devices_Table_Actions"]" Style="text-align:right">
+                <MudIconButton Icon="@Icons.Material.Filled.Download"
+                                Color="Color.Primary"
+                                Size="Size.Small"
+                                OnClick="@(() => OnDownloadBackup.InvokeAsync(context))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                Color="Color.Error"
+                                Size="Size.Small"
+                                OnClick="@(() => OnDeleteBackup.InvokeAsync(context))"
+                                Disabled="@context.IsLocked" />
+                        </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudHidden>
+
+@code {
+    [Parameter] public List<Backup> Backups { get; set; } = new();
+    
+    [Parameter] public HashSet<Backup> SelectedItems { get; set; } = new();
+    [Parameter] public EventCallback<HashSet<Backup>> SelectedItemsChanged { get; set; }
+
+    [Parameter] public bool Loading { get; set; }
+    
+    [Parameter] public EventCallback<(Backup, string)> OnUpdateNote { get; set; }
+    [Parameter] public EventCallback<Backup> OnToggleLock { get; set; }
+    [Parameter] public EventCallback<Backup> OnDownloadBackup { get; set; }
+    [Parameter] public EventCallback<Backup> OnDeleteBackup { get; set; }
+
+    private bool IsDuplicateOfPrevious(Backup current)
+    {
+        var allBackups = Backups.OrderByDescending(b => b.CreatedAt).ToList();
+        if (allBackups == null) return false;
+
+        var index = allBackups.IndexOf(current);
+        if (index == -1 || index == allBackups.Count - 1) return false;
+
+        var previous = allBackups[index + 1];
+        return previous.Sha1Checksum == current.Sha1Checksum;
+    }
+}

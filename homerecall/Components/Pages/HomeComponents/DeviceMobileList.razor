@@ -1,0 +1,128 @@
+@using HomeRecall
+@using HomeRecall.Services
+@using Microsoft.Extensions.Localization
+@using Microsoft.EntityFrameworkCore
+@inject IStringLocalizer<SharedResource> L
+@inject BackupContext Context
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp">
+    <MudGrid class="mb-4">
+        <MudItem xs="8">
+            <MudTextField @bind-Value="SearchString" 
+                         TextChanged="OnSearchChanged"
+                         Adornment="Adornment.Start" 
+                         AdornmentIcon="@Icons.Material.Filled.Search" 
+                         IconSize="Size.Medium"></MudTextField>                    
+        </MudItem>    
+        <MudItem xs="4">
+            <MudSelect T="DeviceType?" Value="FilterType" ValueChanged="OnFilterChanged" Clearable="true" Placeholder="@L["Devices_Table_Type"]">
+                @foreach (DeviceType type in Enum.GetValues(typeof(DeviceType)))
+                {
+                    <MudSelectItem Value="(DeviceType?)type">@type</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+    </MudGrid>           
+
+    <MudGrid Class="mb-4">
+        @foreach (var device in Devices.Where(FilterFunc))
+        {
+            <MudItem xs="12">
+                <MudCard Elevation="3">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">@device.Name</MudText>
+                            <MudLink Href="@($"http://{device.IpAddress}")" Target="_blank" Underline="Underline.Hover">@device.IpAddress</MudLink>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@device.Type</MudChip>
+                        </CardHeaderActions>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.body2">Firmware: @(device.CurrentFirmwareVersion ?? "-")</MudText>
+                            
+                            <div class="d-flex align-center gap-1">
+                                @if (device.AutoBackupOverride == false)
+                                {
+                                    <MudTooltip Text="@L["Devices_AutoBackup_Excluded"]">
+                                        <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Color="Color.Default" Size="Size.Small" />
+                                    </MudTooltip>
+                                }
+                                @if (device.BackupFailures > 0)
+                                {
+                                    <MudTooltip Text="@L["Devices_Backup_Failure_LastFailed"]">
+                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" />
+                                    </MudTooltip>
+                                }
+                                
+                                @if (device.LastBackup.HasValue)
+                                {
+                                    var daysSince = (DateTime.UtcNow - device.LastBackup.Value).TotalDays;
+                                    var color = daysSince > 30 ? Color.Error : (daysSince > 7 ? Color.Warning : Color.Default);
+                                    
+                                    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="@color"/>
+                                    <MudText Typo="Typo.body2">@device.LastBackup.Value.ToLocalTime().ToString("g")</MudText>
+                                }
+                            </div>
+                        </MudStack>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text" 
+                                   Color="Color.Primary" 
+                                   StartIcon="@(IsBackingUp.Contains(device.Id) ? null : Icons.Material.Filled.Backup)"
+                                   Disabled="@(IsBackingUp.Contains(device.Id))"
+                                   OnClick="@(() => OnBackupDevice.InvokeAsync(device))">
+                            @if (IsBackingUp.Contains(device.Id))
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                            }
+                            else
+                            {
+                                @L["Common_Backup"]
+                            }
+                        </MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.History" OnClick="@(() => OnNavigateToBackups.InvokeAsync(device.Id))">
+                            @L["Common_Backups"] (@device.Backups.Count)
+                        </MudButton>
+                        <MudSpacer />
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert">
+                            <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => OnEditDevice.InvokeAsync(device))">@L["Common_Edit"]</MudMenuItem>
+                            <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => OnDeleteDevice.InvokeAsync(device))" IconColor="Color.Error">@L["Common_Delete"]</MudMenuItem>
+                        </MudMenu>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+</MudHidden>
+
+@code {
+    [Parameter] public List<Device> Devices { get; set; } = new();
+    [Parameter] public HashSet<int> IsBackingUp { get; set; } = new();
+    
+    [Parameter] public string SearchString { get; set; } = "";
+    [Parameter] public EventCallback<string> SearchStringChanged { get; set; }
+
+    [Parameter] public DeviceType? FilterType { get; set; }
+    [Parameter] public EventCallback<DeviceType?> FilterTypeChanged { get; set; }
+
+    [Parameter] public Func<Device, bool> FilterFunc { get; set; } = _ => true;
+
+    [Parameter] public EventCallback<Device> OnBackupDevice { get; set; }
+    [Parameter] public EventCallback<int> OnNavigateToBackups { get; set; }
+    [Parameter] public EventCallback<Device> OnEditDevice { get; set; }
+    [Parameter] public EventCallback<Device> OnDeleteDevice { get; set; }
+
+    private async Task OnSearchChanged(string value)
+    {
+        SearchString = value;
+        await SearchStringChanged.InvokeAsync(value);
+    }
+
+    private async Task OnFilterChanged(DeviceType? value)
+    {
+        FilterType = value;
+        await FilterTypeChanged.InvokeAsync(value);
+    }
+}

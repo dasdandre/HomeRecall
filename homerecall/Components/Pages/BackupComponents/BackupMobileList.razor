@@ -1,0 +1,89 @@
+@using HomeRecall
+@using HomeRecall.Services
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<SharedResource> L
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp">
+    <MudStack Spacing="3">
+        @foreach (var backup in Backups.OrderByDescending(b => b.CreatedAt))
+        {
+            <MudCard Elevation="3">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.body1" Style="font-weight: bold">@backup.CreatedAt.ToLocalTime().ToString("g")</MudText>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            @if (!string.IsNullOrEmpty(backup.FirmwareVersion))
+                            {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default" Class="ml-0">@backup.FirmwareVersion</MudChip>
+                            }
+                            <code style="font-size: 0.7rem">@backup.Sha1Checksum.Substring(0, Math.Min(8, backup.Sha1Checksum.Length))</code>
+                        </MudStack>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        @if (IsDuplicateOfPrevious(backup))
+                            {
+                                <MudTooltip Text="@L["Backups_ContentUnchanged"]">
+                                <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Default" Size="Size.Small" />
+                                </MudTooltip>
+                            }
+                            else
+                            {
+                                <MudTooltip Text="@L["Backups_ContentChanged"]">
+                                <MudIcon Icon="@Icons.Material.Filled.Update" Color="Color.Success" Size="Size.Small" />
+                                </MudTooltip>
+                            }
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent Class="pt-0">
+                        <MudTextField Value="@backup.Note"
+                            ValueChanged="@((string s) => OnUpdateNote.InvokeAsync((backup, s)))"
+                            Placeholder="@(L["Backups_Note"] + "...")"
+                            Margin="Margin.Dense"
+                            Variant="Variant.Text"
+                            Immediate="true"/>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudToggleIconButton Toggled="@backup.IsLocked"
+                                            ToggledChanged="@((bool b) => OnToggleLock.InvokeAsync(backup))"
+                                            Icon="@Icons.Material.Outlined.LockOpen"
+                                            Color="@Color.Default"
+                                            ToggledIcon="@Icons.Material.Filled.Lock"
+                                            ToggledColor="@Color.Warning" />
+                    <MudSpacer />
+                    <MudIconButton Icon="@Icons.Material.Filled.Download"
+                            Color="Color.Primary"
+                            OnClick="@(() => OnDownloadBackup.InvokeAsync(backup))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                            Color="Color.Error"
+                            OnClick="@(() => OnDeleteBackup.InvokeAsync(backup))"
+                            Disabled="@backup.IsLocked" />
+                </MudCardActions>
+            </MudCard>
+        }
+    </MudStack>
+</MudHidden>
+
+@code {
+    [Parameter] public List<Backup> Backups { get; set; } = new();
+    
+    [Parameter] public EventCallback<(Backup, string)> OnUpdateNote { get; set; }
+    [Parameter] public EventCallback<Backup> OnToggleLock { get; set; }
+    [Parameter] public EventCallback<Backup> OnDownloadBackup { get; set; }
+    [Parameter] public EventCallback<Backup> OnDeleteBackup { get; set; }
+
+    private bool IsDuplicateOfPrevious(Backup current)
+    {
+        // Check if the NEXT older backup has the same hash.
+        // Since the list is typically ordered descending by date in UI, but we need to check logical predecessor.
+        // We can do this in-memory since we load all backups for the device anyway.
+        
+        var allBackups = Backups.OrderByDescending(b => b.CreatedAt).ToList();
+        if (allBackups == null) return false;
+
+        var index = allBackups.IndexOf(current);
+        if (index == -1 || index == allBackups.Count - 1) return false; // Not found or oldest item
+
+        var previous = allBackups[index + 1];
+        return previous.Sha1Checksum == current.Sha1Checksum;
+    }
+}
