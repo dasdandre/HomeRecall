@@ -9,18 +9,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+
 builder.Services.AddScoped<HomeRecall.Services.IBackupService, HomeRecall.Services.BackupService>();
-
 // Register all strategies
-builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.TasmotaStrategy>();
-builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.WledStrategy>();
-builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.ShellyStrategy>();
-builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.ShellyGen2Strategy>();
-builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.OpenDtuStrategy>();
-builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.AiOnTheEdgeStrategy>();
-builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.AwtrixStrategy>();
-builder.Services.AddScoped<HomeRecall.Services.IDeviceStrategy, HomeRecall.Services.OpenHaspStrategy>();
-
+HomeRecall.Services.ServiceHelpers.AddDeviceStrategies(builder.Services);
 builder.Services.AddScoped<HomeRecall.Services.IDeviceScanner, HomeRecall.Services.DeviceScanner>();
 
 builder.Services.AddHostedService<HomeRecall.Services.BackupScheduler>();
@@ -28,8 +20,7 @@ builder.Services.AddHostedService<HomeRecall.Services.BackupScheduler>();
 builder.Services.AddMudServices();
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 // Setup SQLite
 // In HA Addon, config is usually in /config. Locally we use ./data
@@ -48,10 +39,14 @@ if (!Directory.Exists(persistPath))
 // Use absolute path for SQLite to avoid issues with relative paths in connection strings
 var dbPath = Path.GetFullPath(Path.Combine(persistPath, "homerecall.db"));
 builder.Services.AddDbContext<BackupContext>(options =>
-    options.UseSqlite($"Data Source={dbPath}"));
+{
+    options.UseSqlite($"Data Source={dbPath}");
+    options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.DetachedLazyLoadingWarning));
+});
 
-// Register background services or other dependencies if needed later
-// builder.Services.AddHostedService<BackupScheduler>();
+// Reduce EF Core logging noise by default (only Warning and Error), but respect appsettings config
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
+
 
 var app = builder.Build();
 
@@ -63,8 +58,6 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-// Ingress usually handles SSL termination, so HTTP is fine internally, but standard practice:
-// app.UseHttpsRedirection();
 
 // Path Base handling for Ingress
 // HA Ingress sets HTTP_X_INGRESS_PATH header. We MUST use this to set PathBase.
@@ -90,7 +83,7 @@ var localizationOptions = new RequestLocalizationOptions()
 
 app.UseRequestLocalization(localizationOptions);
 
-app.UseRouting(); 
+app.UseRouting();
 app.UseAntiforgery();
 app.MapControllers();
 
@@ -107,7 +100,7 @@ app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 // Ensure DB created
 using (var scope = app.Services.CreateScope())
 {
-        var db = scope.ServiceProvider.GetRequiredService<BackupContext>();    
+    var db = scope.ServiceProvider.GetRequiredService<BackupContext>();
     db.Database.Migrate();
     // Enable Write-Ahead Logging (WAL) for better performance and resilience against power loss
     db.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
