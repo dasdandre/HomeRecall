@@ -52,6 +52,7 @@ public class DeviceScanner : IDeviceScanner
                      var device = await strategy.ProbeAsync(ip, client);
                     if (device != null)
                     {
+                        device.MacAddress = ServiceHelpers.NormalizeMac(device.MacAddress);                        
                         _logger.LogInformation("Found device {Type} at {Ip} ({Name})", device.Type, device.IpAddress, device.Name);
                         foundDevices.Add(device);
                         break; // Found matching type, move to next IP
