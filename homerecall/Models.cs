@@ -60,8 +60,9 @@ public class Device
     [Required]
     public string IpAddress { get; set; } = string.Empty;
 
-    public string? Hostname { get; set; }
+        public string? Hostname { get; set; }
     public string? MacAddress { get; set; }
+    public string? HardwareModel { get; set; }
     
     public DeviceType Type { get; set; }
     
