@@ -16,7 +16,7 @@ The application uses the Strategy pattern (`IDeviceStrategy`) to support multipl
 - **Supported Devices:** Tasmota, WLED, Shelly (Gen1 & Gen2), OpenDTU, AI-on-the-Edge, Awtrix, OpenHASP.
 - **Capabilities:** Strategies are responsible for:
     - **Backup:** Fetching config files (supports multi-file backups).
-    - **Probing:** Discovering devices, performing "Smart Naming" (e.g. resolving Tasmota FriendlyNames), and extracting **Firmware Versions**.
+    - **Probing:** Discovering devices, performing "Smart Naming" (e.g. resolving Tasmota FriendlyNames), extracting **Hardware Model** and **Firmware Versions**.
 - **Scanner:** `DeviceScanner` scans the local network (HTTP/Parallel) to discover compatible devices.
     - **Persistence:** Last scan range and selected device types are saved in `AppSettings`.
 
@@ -26,6 +26,7 @@ The `BackupService` implements a robust, deduplicating backup process:
 1.  **Extraction:**
     - The appropriate `IDeviceStrategy` fetches configuration files via HTTP (30s timeout).
     - Returns a list of `BackupFile` objects (filename + byte content) and the detected Firmware Version.
+    - **Awtrix** backups are recursive (download all files via `/list?dir=...`).
 
 2.  **Determinism:**
     - Files are sorted alphabetically by name.
@@ -42,7 +43,7 @@ The `BackupService` implements a robust, deduplicating backup process:
     - **Location:** determined by `backup_path` environment variable.
         - **Local Dev:** `./backups`
         - **Docker/HA:** `/data/backups` (ensures inclusion in HA snapshots)
-    - **Database:** Stores metadata (DeviceID, Timestamp, Checksum, StoragePath, LockedStatus, Note, FirmwareVersion).
+    - **Database:** Stores metadata (DeviceID, Timestamp, Checksum, StoragePath, LockedStatus, Note, FirmwareVersion, **BackupSize**).
 
 5.  **Retention Policy:**
     - Controlled by `BackupScheduler` (Hosted Service).
@@ -91,9 +92,10 @@ This is a critical aspect of the application configuration.
 - **Refactoring:** Split monolithic `Home.razor` and `Backups.razor` into smaller, maintainable sub-components (`HomeComponents/`, `BackupComponents/`) separating Mobile (Cards) and Desktop (DataGrid) views.
 - **Theming:** Removed complex JS-based dynamic theme syncing with Home Assistant. Now uses robust static colors and native System Dark Mode detection.
 - **Code Clean:** Removed obsolete method calls in `MudThemeProvider`.
-- **UI:** Improved Desktop DataGrid layout with compact `MudButtonGroup` and colored `MudChips` for device types.
-
-## Future Plans
-- **Connectivity:** Transition from IP-only to MAC-Address based identification ("Self-Healing" connections).
-- **Discovery:** Implement mDNS (Multicast DNS) for active device discovery and hostname resolution.
-- **Data Model:** Extend `Device` to store `MacAddress` and `Hostname` alongside `IpAddress`.
+- **UI:** Improved Desktop DataGrid layout with compact `MudButtonGroup` and colored `MudChips` for device types. Added Backup Size column.
+- **Features:** 
+    - Added `HardwareModel` to devices.
+    - Added `BackupSize` to backups.
+    - Improved Shelly Gen2/3 backup (includes scripts).
+    - Improved Awtrix backup (recursive file download).
+    - Reduced EF Core logging noise.

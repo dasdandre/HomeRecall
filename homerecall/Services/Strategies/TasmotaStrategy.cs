@@ -55,7 +55,18 @@ public class TasmotaStrategy : IDeviceStrategy
                     }
                     catch
                     { }
-                   
+
+                    // Try to get Hardware Model
+                    string? hardwareModel = null;
+                    try
+                    {
+                        var moduleResp = await httpClient.GetFromJsonAsync<TasmotaModuleResponse>($"http://{ip}/cm?cmnd=Module");
+                        if (moduleResp?.Module != null && moduleResp.Module.Count > 0)
+                        {
+                            hardwareModel = moduleResp.Module.Values.FirstOrDefault();
+                        }
+                    }
+                    catch { }
 
                     return new DiscoveredDevice
                     {
@@ -64,6 +75,7 @@ public class TasmotaStrategy : IDeviceStrategy
                         Name = name,
                         Hostname = hostname,
                         MacAddress = mac,
+                        HardwareModel = hardwareModel,
                         FirmwareVersion = status2.StatusFWR.Version
                     };
                 }
@@ -120,4 +132,9 @@ public class TasmotaStrategy : IDeviceStrategy
         public string? Topic { get; set; }
     }
     private class StatusNet { public string? Hostname { get; set; } public string? Mac { get; set; } }
+
+    private class TasmotaModuleResponse
+    {
+        public Dictionary<string, string>? Module { get; set; }
+    }
 }
