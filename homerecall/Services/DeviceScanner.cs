@@ -20,7 +20,7 @@ public class DeviceScanner : IDeviceScanner
         _strategies = strategies;
     }
 
-    public async Task<List<DiscoveredDevice>> ScanNetworkAsync(string startIp, string endIp, List<DeviceType> typesToScan, IProgress<ScanProgressReport>? progress = null, IEnumerable<string>? knownIps = null)
+    public async Task<List<DiscoveredDevice>> ScanNetworkAsync(string startIp, string endIp, List<DeviceType> typesToScan, IProgress<ScanProgressReport>? progress = null, IEnumerable<string>? knownIps = null, CancellationToken cancellationToken = default)
     {
         var ipsToScan = GenerateIpsFromRange(startIp, endIp);
         var knownSet = knownIps != null ? new HashSet<string>(knownIps) : null;
@@ -35,41 +35,58 @@ public class DeviceScanner : IDeviceScanner
         var foundDevices = new System.Collections.Concurrent.ConcurrentBag<DiscoveredDevice>();
 
         // Parallelism
-        var options = new ParallelOptions { MaxDegreeOfParallelism = 20 };
+        var options = new ParallelOptions 
+        { 
+            MaxDegreeOfParallelism = 20, 
+            CancellationToken = cancellationToken 
+        };
+
         int processedCount = 0;
         // Use total = all ips to avoid progress > 100% when skipping known IPs
         int total = ipsToScan.Count;
         
-        await Parallel.ForEachAsync(ipsToScan, options, async (ip, token) =>
+        try
         {
-             // For each IP, check requested strategies
-             using var client = CreateClient();
-             
-             foreach (var strategy in _strategies)
-             {
-                 if (typesToScan.Contains(strategy.SupportedType))
-                 {
-                     var device = await strategy.ProbeAsync(ip, client);
-                    if (device != null)
+            await Parallel.ForEachAsync(ipsToScan, options, async (ip, token) =>
+            {
+                // For each IP, check requested strategies
+                using var client = CreateClient();
+                DiscoveredDevice? foundDevice = null;
+                
+                foreach (var strategy in _strategies)
+                {
+                    if (token.IsCancellationRequested) break;
+
+                    if (typesToScan.Contains(strategy.SupportedType))
                     {
-                        device.MacAddress = ServiceHelpers.NormalizeMac(device.MacAddress);                        
-                        _logger.LogInformation("Found device {Type} at {Ip} ({Name})", device.Type, device.IpAddress, device.Name);
-                        foundDevices.Add(device);
-                        break; // Found matching type, move to next IP
+                        var device = await strategy.ProbeAsync(ip, client);
+                        if (device != null)
+                        {
+                            device.MacAddress = ServiceHelpers.NormalizeMac(device.MacAddress);                        
+                            _logger.LogInformation("Found device {Type} at {Ip} ({Name})", device.Type, device.IpAddress, device.Name);
+                            foundDevices.Add(device);
+                            foundDevice = device;
+                            break; // Found matching type, move to next IP
+                        }
                     }
-                 }
-             }
-             
-             // Report Progress
-             int current = Interlocked.Increment(ref processedCount);
-             if (progress != null && total > 0)
-             {
-                 if (current % 5 == 0 || current == total)
-                 {
-                     progress.Report(new ScanProgressReport((int)((double)current / total * 100), foundDevices.Count));
-                 }
-             }
-        });
+                }
+                
+                // Report Progress
+                int current = Interlocked.Increment(ref processedCount);
+                if (progress != null && total > 0)
+                {
+                    // Report immediately if found, otherwise throttle slightly
+                    if (foundDevice != null || current % 5 == 0 || current == total)
+                    {
+                        progress.Report(new ScanProgressReport((int)((double)current / total * 100), foundDevices.Count, foundDevice));
+                    }
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Scan cancelled by user.");
+        }
 
         _logger.LogInformation("Scan completed: {FoundCount} devices found", foundDevices.Count);
         return foundDevices.ToList();

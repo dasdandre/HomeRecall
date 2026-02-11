@@ -6,6 +6,7 @@
 @inject IDeviceScanner Scanner
 @inject BackupContext Context
 @inject ISnackbar Snackbar
+@implements IDisposable
 
 <MudDialog>
     <DialogContent>
@@ -41,49 +42,52 @@
                 </MudChipSet>
             </MudForm>
         }
-        else if (_scanRunning)
+        else
         {
-            <div class="d-flex flex-column align-center justify-center py-8">
-                <MudProgressCircular Color="Color.Primary" Size="Size.Large" Value="@_progressPercent" Max="100" Class="mb-4" />
-                <MudText>@L["Scan_Running"] (@_progressPercent%)</MudText>
-                <MudText Typo="Typo.caption" Class="mt-1">@L["Scan_Summary", _plannedScanCount, _skippedCount]</MudText>
-                @if (_foundCount > 0)
-                {
-                    <MudChip T="string" Color="Color.Success" Variant="Variant.Text" Icon="@Icons.Material.Filled.Check" Class="mt-2">@_foundCount Devices found</MudChip>
-                }
-                <MudText Typo="Typo.caption" Class="mt-2">Scanning @_startIp - @GetEndIp()...</MudText>
-            </div>
-        }
-        else if (_foundDevices != null)
-        {
-            @if (!_foundDevices.Any())
+            if (_scanRunning)
             {
-                <MudAlert Severity="Severity.Info" Class="my-4">@L["Scan_NoDevicesFound"]</MudAlert>
-                <MudButton OnClick="Reset" Variant="Variant.Text" Color="Color.Primary">@L["Common_Retry"]</MudButton>
+                <div class="d-flex flex-column align-center justify-center py-4">
+                    <MudText>@L["Scan_Running"] (@_progressPercent%)</MudText>
+                    <MudProgressLinear Color="Color.Primary" Value="@_progressPercent" Class="my-2" />
+                    <MudText Typo="Typo.caption" Class="mb-2">@L["Scan_Summary", _plannedScanCount, _skippedCount]</MudText>
+                    <div class="d-flex gap-4 align-center">
+                         <MudText Typo="Typo.caption">Scanning @_startIp - @GetEndIp()...</MudText>
+                         <MudButton OnClick="StopScan" Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small">Stop</MudButton>
+                    </div>
+                </div>
             }
-            else
+
+            if (_foundDevices != null)
             {
-                <MudText Typo="Typo.h6" Class="mb-2">@L["Scan_Results_Title"] (@_foundDevices.Count)</MudText>
-                <MudTable Items="@_foundDevices" MultiSelection="true" @bind-SelectedItems="_selectedItems" Hover="true" Dense="true" Elevation="0">
-                    <HeaderContent>
-                        <MudTh>IP</MudTh>
-                        <MudTh>Name</MudTh>
-                        <MudTh>Type</MudTh>
-                        <MudTh>Firmware</MudTh>
-                        <MudTh>Model</MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="IP">
-                            <MudLink Href="@($"http://{context.IpAddress}")" Target="_blank" Underline="Underline.Hover">@context.IpAddress</MudLink>
-                        </MudTd>
-                        <MudTd DataLabel="Name">
-                             <MudTextField @bind-Value="context.Name" Margin="Margin.Dense" />
-                        </MudTd>
-                        <MudTd DataLabel="Type">@context.Type</MudTd>
-                        <MudTd DataLabel="Firmware">@context.FirmwareVersion</MudTd>
-                        <MudTd DataLabel="Model">@context.HardwareModel</MudTd>
-                    </RowTemplate>
-                </MudTable>
+                @if (!_foundDevices.Any() && !_scanRunning)
+                {
+                    <MudAlert Severity="Severity.Info" Class="my-4">@L["Scan_NoDevicesFound"]</MudAlert>
+                    <MudButton OnClick="Reset" Variant="Variant.Text" Color="Color.Primary">@L["Common_Retry"]</MudButton>
+                }
+                else if (_foundDevices.Any())
+                {
+                    <MudText Typo="Typo.h6" Class="mb-2">@L["Scan_Results_Title"] (@_foundDevices.Count)</MudText>
+                    <MudTable Items="@_foundDevices" MultiSelection="true" @bind-SelectedItems="_selectedItems" Hover="true" Dense="true" Elevation="0" Height="400px" FixedHeader="true">
+                        <HeaderContent>
+                            <MudTh>IP</MudTh>
+                            <MudTh>Name</MudTh>
+                            <MudTh>Type</MudTh>
+                            <MudTh>Firmware</MudTh>
+                            <MudTh>Model</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="IP">
+                                <MudLink Href="@($"http://{context.IpAddress}")" Target="_blank" Underline="Underline.Hover">@context.IpAddress</MudLink>
+                            </MudTd>
+                            <MudTd DataLabel="Name">
+                                 <MudTextField @bind-Value="context.Name" Margin="Margin.Dense" />
+                            </MudTd>
+                            <MudTd DataLabel="Type">@context.Type</MudTd>
+                            <MudTd DataLabel="Firmware">@context.FirmwareVersion</MudTd>
+                            <MudTd DataLabel="Model">@context.HardwareModel</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
             }
         }
     </DialogContent>
@@ -118,6 +122,7 @@
     
     private List<DiscoveredDevice>? _foundDevices;
     private HashSet<DiscoveredDevice> _selectedItems = new();
+    private CancellationTokenSource? _cts;
 
     // Try to detect local IP on init or load from settings
     protected override async Task OnInitializedAsync()
@@ -171,6 +176,7 @@
     {
         _foundDevices = null;
         _scanRunning = false;
+        _cts?.Cancel();
     }
 
     private async Task StartScan()
@@ -182,6 +188,8 @@
         }
 
         _scanRunning = true;
+        _foundDevices = new List<DiscoveredDevice>();
+        _cts = new CancellationTokenSource();
         
         // Save settings for next time
         var settings = await Context.Settings.FindAsync(1);
@@ -196,12 +204,19 @@
         _progressPercent = 0;
         _foundCount = 0;
         StateHasChanged();
-        await Task.Delay(50); 
 
         var progressHandler = new Progress<ScanProgressReport>(report =>
         {
             _progressPercent = report.Percent;
             _foundCount = report.FoundCount;
+            if (report.LatestDevice != null)
+            {
+                if (_foundDevices != null && !_foundDevices.Any(d => d.IpAddress == report.LatestDevice.IpAddress))
+                {
+                    _foundDevices.Add(report.LatestDevice);
+                    _selectedItems.Add(report.LatestDevice); // Auto-select new items
+                }
+            }
             StateHasChanged();
         });
 
@@ -215,22 +230,41 @@
             _plannedScanCount = planned;
             _skippedCount = skipped;
 
-            var results = await Scanner.ScanNetworkAsync(_startIp, endIp, _selectedTypes.ToList(), progressHandler, knownIps);
-
-            _foundDevices = results.Where(d => !knownIps.Contains(d.IpAddress)).ToList();
-
-            _selectedItems = new HashSet<DiscoveredDevice>(_foundDevices);
+            // Pass Cancellation Token
+            var results = await Scanner.ScanNetworkAsync(_startIp, endIp, _selectedTypes.ToList(), progressHandler, knownIps, _cts.Token);
+            
+            // Final consistency check (optional, but good practice)
+            if (results != null)
+            {
+                 // Merge just in case
+                 foreach(var r in results)
+                 {
+                     if (!_foundDevices.Any(d => d.IpAddress == r.IpAddress))
+                        _foundDevices.Add(r);
+                 }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on cancel
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Scan failed: {ex.Message}", Severity.Error);
-            _foundDevices = new List<DiscoveredDevice>();
         }
         finally
         {
             _scanRunning = false;
+            _cts?.Dispose();
+            _cts = null;
         }
     }
+
+    private void StopScan()
+    {
+        _cts?.Cancel();
+    }
+
 
     private Task OnSelectedValuesChanged(IEnumerable<DeviceType> values)
     {
@@ -278,6 +312,9 @@
 
     private async Task AddSelected()
     {
+        // Stop the scan first if running
+        StopScan();
+
         int addedCount = 0;
         foreach (var d in _selectedItems)
         {
@@ -302,5 +339,15 @@
         MudDialog.Close(DialogResult.Ok(true));
     }
 
-    void Cancel() => MudDialog.Cancel();
+    void Cancel() 
+    {
+        StopScan();
+        MudDialog.Cancel();
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
 }
