@@ -99,3 +99,9 @@ This is a critical aspect of the application configuration.
     - Improved Shelly Gen2/3 backup (includes scripts).
     - Improved Awtrix backup (recursive file download).
     - Reduced EF Core logging noise.
+- **Scanner:** 
+    - **Live View:** Found devices are now displayed in real-time during the scan.
+    - **Control:** Added "Stop Scan" button and proper cancellation support using `CancellationToken`.
+    - **Feedback:** Displays number of skipped (known) IPs.
+- **Strategies:**
+    - **Tasmota:** Added logic to query `cm?cmnd=Module` to retrieve the specific Hardware Model (e.g. "Sonoff Basic", "Refoss-P11").

@@ -1,4 +1,4 @@
-# 🏠 HomeRecall
+# HomeRecall
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-512bd4?style=flat-square&logo=dotnet)
 ![MudBlazor](https://img.shields.io/badge/UI-MudBlazor-7e6fff?style=flat-square&logo=blazor)
@@ -6,83 +6,85 @@
 ![Docker](https://img.shields.io/badge/Container-Docker-2496ed?style=flat-square&logo=docker)
 ![AI Assisted](https://img.shields.io/badge/🤖%20AI-Co--Authored-success?style=flat-square)
 
-> ⚠️ **Early Development Access**: This project is still in a very early development phase and **should not be used in production environments yet**.
+> **Development Status**: This project is in an early development phase. While functional, it is not yet recommended for critical production environments without supervision.
 
-**HomeRecall** is the centralized backup solution for your Smart Home devices. Designed to run seamlessly as a **Home Assistant Add-on**, it works just as well as a **standalone Docker container** or **native .NET application**.
+**HomeRecall** is a centralized backup solution for Smart Home IoT devices. It is engineered to run natively as a **Home Assistant Add-on** (supporting Ingress and auto-theming) but operates equally well as a standalone container or .NET application.
 
-Never lose configurations for **Tasmota**, **WLED**, **Shelly** (Gen 1-4), **OpenDTU**, **AI-on-the-Edge**, **Awtrix Light**, or **openHASP** devices again.
-
----
-
-## ✨ AI-Powered Development
-
-**This project is a showcase of modern software engineering with Artificial Intelligence.**
-
-The entire codebase—from the backend architecture in .NET 10 to the responsive MudBlazor UI and the complex Home Assistant Ingress integration—was developed through an iterative dialogue between a human developer and an AI Agent. It demonstrates how AI can accelerate development, solve complex infrastructure challenges (like reverse proxy handling), and deliver production-ready code.
+Its primary goal is to ensure configuration persistence for a wide range of DIY and commercial IoT devices without reliance on cloud services.
 
 ---
 
-## 🚀 Features
+## Key Features
 
-*   **📱 Device Management:** Easily manage your IoT devices in a clean list view.
-    *   **Supported Devices:** Tasmota, WLED, Shelly (Gen 1-4), OpenDTU, AI-on-the-Edge, Awtrix Light, openHASP.
-*   **🌍 Multi-language Support:** Fully localized in English and German.
-*   **💾 One-Click Backups:** Create backups of your device configurations instantly.
-*   **📂 Smart Storage:** Backups are stored with readable timestamps. Identical consecutive backups are visually highlighted in the UI to track changes easily.
-*   **🔎 Network Scanner:** Automatically discover devices in your network. Scan IP ranges and detect device types (Tasmota, Shelly, etc.) with a single click.
-*   **🔄 Mass Backup:** Backup all your devices at once with a single click.
-*   **🚀 Flexible Deployment:**
-    *   **Home Assistant:** Native integration via Add-on & Ingress.
-    *   **Standalone:** Runs anywhere Docker or .NET runs (NAS, Raspberry Pi, Windows/Linux/Mac).
-*   **🎨 Seamless Integration:** 
-    *   **Auto-Theming:** Automatically syncs with your Home Assistant theme (Light/Dark mode and colors) when running as an Add-on.
-*   **📦 History & Versioning:** Keep multiple versions of backups for every device.
-*   **🔒 Local Storage:** Your data stays on your drive. No cloud required.
+### 🔌 Device Support
+HomeRecall supports configuration backup for a variety of popular firmware and devices:
+*   **Tasmota** 
+*   **Shelly** (Gen 1, Gen 2/3 Plus/Pro)
+*   **WLED**
+*   **Awtrix Light**
+*   **OpenDTU** (untested alpha)
+*   **AhoyDTU** (untested alpha)
+*   **AI-on-the-Edge** (untested alpha)
+*   **openHASP** (untested alpha)
 
-## 🖼️ Screenshots
+### 💾 Intelligent Backup System
+*   **Versioning & History:** Keeps a history of configuration changes.
+*   **Deduplication:** Uses content-based hashing to store only unique backups, saving storage space while maintaining a full history.
+*   **Visual Diff:** The UI highlights consecutive identical backups to easily identify when a configuration actually changed.
+*   **Mass Operations:** Trigger backups for individual devices or the entire network with a single action.
 
-*(Add your screenshots here, e.g., `![Dashboard](docs/dashboard.png)`)*
+### 🔎 Network Discovery
+*   **Scanner:** Integrated multi-threaded network scanner to find devices within IP ranges.
+*   **Auto-Detection:** Automatically identifies device types, firmware versions, and hardware models (e.g., distinguishing a "Sonoff Basic" from a generic Tasmota device).
+*   **Live Feedback:** Real-time visibility of found devices during the scan process.
 
-## 🛠️ Tech Stack
+### 🛠 Integration & Deployment
+*   **Home Assistant:** First-class citizen support via Add-on. Supports **Ingress** for seamless UI integration 
+*   **Portable:** Runs on any platform supporting Docker or .NET 10 (Windows, Linux, macOS, Raspberry Pi).
+*   **Localization:** Interface available in English and German.
 
-*   **Framework:** [.NET 10](https://dotnet.microsoft.com/) (Stable/LTS)
-*   **UI Component Library:** [MudBlazor](https://mudblazor.com/) (v8)
-*   **Architecture:** Blazor Server (Interactive Server Side Rendering)
-*   **Database:** SQLite with Entity Framework Core
-*   **Containerization:** Docker (Alpine Linux base)
+---
 
-## 📦 Installation
+## Technical Architecture
 
-### As Home Assistant Add-on
+This project utilizes a modern technology stack to ensure performance and maintainability:
 
-1.  Add this repository to your Home Assistant Add-on Store.
+*   **Framework:** .NET 10 (Preview/RC)
+*   **UI:** Blazor Server with MudBlazor (Material Design)
+*   **Data:** SQLite with Entity Framework Core
+*   **Runtime:** Docker (Alpine Linux base)
+
+## Installation
+
+### Home Assistant Add-on
+1.  Add this repository URL to your **Home Assistant Add-on Store**.
 2.  Install **HomeRecall**.
 3.  Start the Add-on and click "Open Web UI".
 
-### Local Development (Docker)
+### Docker (Standalone)
+Run the container ensuring persistence for data and backups:
 
 ```bash
-# Build the image
-docker build -t homerecall .
-
-# Run the container (mounting data volume)
-docker run -d -p 5000:8080 -v $(pwd)/data:/config -v $(pwd)/backups:/backup homerecall
+docker run -d \
+  --name homerecall \
+  -p 5000:8080 \
+  -v $(pwd)/data:/config \
+  -v $(pwd)/backups:/backup \
+  homerecall
 ```
 
 ### Local Development (.NET)
-
-Prerequisites: .NET 10 SDK
+Requires .NET 10 SDK.
 
 ```bash
 cd homerecall
 dotnet watch run
 ```
-*Note: Local development runs in a simulated environment using `launchSettings.json` to mock Home Assistant paths.*
 
-## 🤝 Contributing
+## Project Background
 
-Contributions are welcome! Whether you are a human or an AI, feel free to open a pull request.
+**HomeRecall** represents a modern approach to software engineering. The entire codebase—from the backend architecture to the UI components—was developed through an iterative co-authoring process between a human developer and an AI Agent. This methodology emphasizes rapid prototyping, clean code standards, and robust architectural decisions.
 
-## 📄 License
+## License
 
-[MIT](LICENSE)
+Distributed under the [MIT License](LICENSE).
