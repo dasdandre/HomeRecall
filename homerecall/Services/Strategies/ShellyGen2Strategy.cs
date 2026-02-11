@@ -25,7 +25,8 @@ public class ShellyGen2Strategy : IDeviceStrategy
                     Type = DeviceType.ShellyGen2, 
                     Name = name, 
                     MacAddress = info.Mac,
-                    FirmwareVersion = version 
+                    FirmwareVersion = version,
+                    HardwareModel = info.App
                 };
             }
         }

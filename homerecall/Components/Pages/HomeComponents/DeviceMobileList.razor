@@ -47,8 +47,12 @@
                     <MudCardContent>
                         <!-- Status Info (Firmware, AutoBackup, Backup Age) -->
                         <MudStack Row="true" Justify="Justify.SpaceBetween">
-                            <MudText Typo="Typo.body2">Firmware: @(device.CurrentFirmwareVersion ?? "-")</MudText>
-                            
+                            <MudText Typo="Typo.body2">Firmware: @(device.CurrentFirmwareVersion ?? "-")</MudText>                            
+                        </MudStack>
+                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.body2">Model: @(device.HardwareModel ?? "-")</MudText>
+                        </MudStack>
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                             <div class="d-flex align-center gap-1">
                                 <!-- Auto Backup Excluded Icon -->
                                 @if (device.AutoBackupOverride == false)
@@ -75,7 +79,7 @@
                                     <MudText Typo="Typo.body2">@device.LastBackup.Value.ToLocalTime().ToString("g")</MudText>
                                 }
                             </div>
-                        </MudStack>
+                        </MudStack>    
                     </MudCardContent>
                     <MudCardActions>
                         <!-- Action Buttons: Backup, History, Menu (Edit/Delete) -->

@@ -70,6 +70,7 @@
                         <MudTh>Name</MudTh>
                         <MudTh>Type</MudTh>
                         <MudTh>Firmware</MudTh>
+                        <MudTh>Model</MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="IP">
@@ -80,6 +81,7 @@
                         </MudTd>
                         <MudTd DataLabel="Type">@context.Type</MudTd>
                         <MudTd DataLabel="Firmware">@context.FirmwareVersion</MudTd>
+                        <MudTd DataLabel="Model">@context.HardwareModel</MudTd>
                     </RowTemplate>
                 </MudTable>
             }
@@ -288,7 +290,8 @@
                     Type = d.Type,
                     MacAddress = d.MacAddress,
                     Hostname = d.Hostname,
-                    CurrentFirmwareVersion = d.FirmwareVersion
+                    CurrentFirmwareVersion = d.FirmwareVersion,
+                    HardwareModel = d.HardwareModel
                 });
                 addedCount++;
             }
