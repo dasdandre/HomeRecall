@@ -15,11 +15,12 @@
         <HeaderContent>
             <MudTh>@L["Backups_Date"]</MudTh>
             <MudTh>Firmware</MudTh>
+            <MudTh>Size</MudTh>
             <MudTh>@L["Backups_Checksum"]</MudTh>
             <MudTh>Info</MudTh>
             <MudTh>@L["Backups_Note"]</MudTh>
             <MudTh>@L["Backups_Locked"]</MudTh>
-            <MudTh Style="text-align:right">@L["Devices_Table_Actions"]</MudTh>
+            <MudTh Style="text-align:right">Actions</MudTh>
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="@L["Backups_Date"]">@context.CreatedAt.ToLocalTime().ToString("g")</MudTd>
@@ -28,6 +29,9 @@
                 {
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@context.FirmwareVersion</MudChip>
                 }
+            </MudTd>
+            <MudTd DataLabel="Size">
+                @HomeRecall.Components.UiHelpers.FormatSize(context.BackupSize)
             </MudTd>
             <MudTd DataLabel="@L["Backups_Checksum"]">
                 <code style="font-size: 0.8rem">@context.Sha1Checksum.Substring(0, Math.Min(8, context.Sha1Checksum.Length))</code>
@@ -51,10 +55,9 @@
                                 ValueChanged="@((string s) => OnUpdateNote.InvokeAsync((context, s)))"
                                 Placeholder="@(L["Backups_Note"] + "...")"
                                 Margin="Margin.Dense"
-                                Variant="Variant.Text"/>
+                                Variant="Variant.Text" />
             </MudTd>
             <MudTd DataLabel="@L["Backups_Locked"]">
-                <MudTooltip Text="@L["Backups_Locked"]">
                     <div>
                         <MudToggleIconButton Toggled="@context.IsLocked"
                                                 ToggledChanged="@((bool b) => OnToggleLock.InvokeAsync(context))"
@@ -63,9 +66,8 @@
                                                 ToggledIcon="@Icons.Material.Filled.Lock"
                                                 ToggledColor="@Color.Warning" />
                     </div>
-                </MudTooltip>
             </MudTd>
-            <MudTd DataLabel="@L["Devices_Table_Actions"]" Style="text-align:right">
+            <MudTd DataLabel="Actions" Style="text-align:right">
                 <MudIconButton Icon="@Icons.Material.Filled.Download"
                                 Color="Color.Primary"
                                 Size="Size.Small"

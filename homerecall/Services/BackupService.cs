@@ -140,7 +140,8 @@ public class BackupService : IBackupService
                 Sha1Checksum = checksum,
                 StoragePath = storageFileName,
                 IsLocked = false,
-                FirmwareVersion = result.FirmwareVersion
+                FirmwareVersion = result.FirmwareVersion,
+                BackupSize = zipBytes.Length
             };
 
             _context.Backups.Add(backup);

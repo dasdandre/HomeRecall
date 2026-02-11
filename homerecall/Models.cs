@@ -91,10 +91,12 @@ public class Backup
     [Required]
     public string Sha1Checksum { get; set; } = string.Empty;
 
-    public string? FirmwareVersion { get; set; }
+        public string? FirmwareVersion { get; set; }
     
     // The filename stored on disk (likely just the checksum + .zip)
     public string StoragePath { get; set; } = string.Empty;
+
+    public long BackupSize { get; set; } = 0;
     
     public bool IsLocked { get; set; }
     
