@@ -62,7 +62,13 @@ This project utilizes a modern technology stack to ensure performance and mainta
 3.  Start the Add-on and click "Open Web UI".
 
 ### Docker (Standalone)
-Run the container ensuring persistence for data and backups:
+Ensure the data directories exist and are accessible:
+
+```bash
+mkdir -p data backups
+```
+
+Run the container using the official multi-arch image from GitHub Container Registry:
 
 ```bash
 docker run -d \
@@ -70,11 +76,25 @@ docker run -d \
   -p 5000:8080 \
   -v $(pwd)/data:/config \
   -v $(pwd)/backups:/backup \
-  homerecall
+  ghcr.io/dasdandre/homerecall:latest
+```
+
+*Automatically pulls the correct image for your architecture (amd64, arm64, arm/v7).*
+
+### Local Development (Docker)
+
+To build and run the container locally from source:
+
+```bash
+# Build the image locally
+docker build -t homerecall ./homerecall
+
+# Run the container (mounting data volume)
+docker run -d -p 5000:8080 -v $(pwd)/data:/config -v $(pwd)/backups:/backup homerecall
 ```
 
 ### Local Development (.NET)
-Requires .NET 10 SDK.
+Requires .NET 10 SDK (Preview).
 
 ```bash
 cd homerecall
