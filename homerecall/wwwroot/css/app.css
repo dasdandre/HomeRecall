@@ -50,3 +50,12 @@ a, .btn-link {
     right: 0.75rem;
     top: 0.5rem;
 }
+
+/* Fix active tab color to match primary theme color */
+.mud-tabs.ha-appbar-tabs .mud-tab.mud-tab-active {
+    color: var(--mud-palette-primary);
+}
+
+.mud-tabs.ha-appbar-tabs .mud-tab.mud-tab-active .mud-icon-root {
+    color: var(--mud-palette-primary);
+}
