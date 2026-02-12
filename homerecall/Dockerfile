@@ -17,7 +17,7 @@ RUN case "${TARGETARCH}" in \
       *)       echo "Unsupported arch: ${TARGETARCH}"; exit 1 ;; \
     esac && \
     echo "Building for RID: $RID" && \
-    dotnet publish -c Release -o /app/publish -r $RID --self-contained true -p:PublishTrimmed=true
+    dotnet publish -c Release -o /app/publish -r $RID --self-contained true -p:PublishTrimmed=false
 
 # STAGE 2: Das eigentliche Add-on
 FROM $BUILD_FROM
