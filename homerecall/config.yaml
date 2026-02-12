@@ -1,8 +1,9 @@
 name: "HomeRecall"
-version: "1.0.36"
+version: "1.0.37"
 slug: "homerecall"
 description: "A complete rewrite of TasmoBackup using .NET 10, supporting Tasmota, WLED, and Shelly."
 url: "https://github.com/dasdandre/HomeRecall"
+image: "ghcr.io/dasdandre/homerecall/{arch}"
 arch:
   - aarch64
   - amd64
