@@ -9,6 +9,25 @@ Console.ResetColor();
 
 // Annahme: Tool liegt in tools/ReleaseTool, Projekt in ../../
 string projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
+
+// Check for uncommitted changes
+string status = GetGitOutput("status --porcelain");
+if (!string.IsNullOrWhiteSpace(status))
+{
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.WriteLine("Warning: You have uncommitted changes:");
+    Console.WriteLine(status);
+    Console.ResetColor();
+
+    Console.Write("Do you want to continue anyway? (y/n): ");
+    var confirm = Console.ReadLine();
+    if (confirm?.Trim().ToLower() != "y")
+    {
+        Console.WriteLine("Aborted.");
+        return;
+    }
+}
+
 string configFile = Path.Combine(projectRoot, "homerecall", "config.yaml");
 
 if (!File.Exists(configFile))
@@ -105,5 +124,26 @@ void RunGit(string args)
         if (!string.IsNullOrWhiteSpace(output)) Console.WriteLine(output);
         if (!string.IsNullOrWhiteSpace(error)) Console.WriteLine(error); // Git often outputs to stderr even on success
     }
+}
+
+string GetGitOutput(string args)
+{
+    var psi = new ProcessStartInfo
+    {
+        FileName = "git",
+        Arguments = args,
+        WorkingDirectory = projectRoot,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
+    };
+
+    using var process = Process.Start(psi);
+    // Read output before waiting to avoid deadlocks
+    string output = process!.StandardOutput.ReadToEnd();
+    process.WaitForExit();
+    
+    return output;
 }
 
