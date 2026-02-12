@@ -2,4 +2,4 @@
 
 echo "Starting HomeRecall..."
 cd /app
-exec dotnet HomeRecall.dll
+exec ./HomeRecall
