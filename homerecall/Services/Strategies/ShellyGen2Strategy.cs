@@ -66,7 +66,7 @@ public class ShellyGen2Strategy : IDeviceStrategy
 
                         if (sb.Length > 0)
                         {
-                            string safeName = script.Name;
+                            string safeName = script.Name?? "";                            
                             if (string.IsNullOrWhiteSpace(safeName))
                             {
                                 safeName = $"script_{script.Id}";

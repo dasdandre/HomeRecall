@@ -9,13 +9,19 @@ window.getHaColors = async () => {
         appBarBackground: '#03a9f4',
         appBarText: '#ffffff',
         drawerBackground: '#ffffff',
-        drawerText: '#212121'
+        drawerText: '#212121',
+        success: '#4caf50',
+        error: '#f44336'
     };
-   
 
-    // Fallback to CSS variables if API not available
     try {
-        const targetDoc = (window.parent && window.parent !== window) ? window.parent.document.documentElement : document.documentElement;
+        // Check if we are in an iframe (Home Assistant Ingress)
+        const inIframe = window.parent && window.parent !== window;
+        const targetDoc = inIframe ? window.parent.document.documentElement : document.documentElement;
+        
+        // If we can't access parent document (cross-origin), we can't sync theme
+        if (!targetDoc) return { isDarkMode: false, ...defaults };
+
         const style = getComputedStyle(targetDoc);
 
         const getVal = (name) => {
@@ -23,7 +29,7 @@ window.getHaColors = async () => {
             return val || null;
         };
 
-        const isDarkMode = targetDoc.classList.contains('dark');
+        const isDarkMode = targetDoc.classList.contains('dark') || targetDoc.getAttribute('data-theme') === 'dark';
         const primaryColor = getVal('--primary-color');
         
         if (primaryColor) {
@@ -35,44 +41,42 @@ window.getHaColors = async () => {
                 surface: getVal('--card-background-color') || defaults.surface,
                 textPrimary: getVal('--primary-text-color') || defaults.textPrimary,
                 textSecondary: getVal('--secondary-text-color') || defaults.textSecondary,
-                appBarBackground: getVal('--app-header-background-color') || defaults.appBarBackground,
-                appBarText: getVal('--app-header-text-color') || defaults.appBarText,
+                appBarBackground: getVal('--app-header-background-color') || primaryColor || defaults.appBarBackground,
+                appBarText: getVal('--app-header-text-color') || getVal('--text-primary-color') || defaults.appBarText,
                 drawerBackground: getVal('--card-background-color') || defaults.drawerBackground,
-                drawerText: getVal('--primary-text-color') || defaults.drawerText
+                drawerText: getVal('--primary-text-color') || defaults.drawerText,
+                success: getVal('--success-color') || defaults.success,
+                error: getVal('--error-color') || defaults.error
             };
         }
         return { isDarkMode: isDarkMode, ...defaults };
 
     } catch (e) {
+        console.debug('HomeRecall: Unable to read Home Assistant theme.', e);
         return { isDarkMode: false, ...defaults };
     }
 };
 
-window.observeHaThemeChange = (dotNetHelper) => {
+window.observeHaThemeChange = async (dotNetHelper) => {
     try {
-        const parentWindow = (window.parent && window.parent !== window) ? window.parent : window;
-        
-        // If HA exposes a way to listen for theme changes, use it
-        if (parentWindow.hass && parentWindow.addEventListener) {
-            // Listen for custom HA theme change events
-            parentWindow.addEventListener('theme-changed', async () => {
-                const colors = await window.getHaColors();
-                dotNetHelper.invokeMethodAsync('UpdateThemeFromJs', colors);
-            });
-        }
-        
-        // Also fall back to MutationObserver for DOM changes
-        const targetNode = (window.parent && window.parent !== window) ? window.parent.document.documentElement : document.documentElement;
-        const config = { attributes: true, attributeFilter: ['style', 'class'] };
+        const inIframe = window.parent && window.parent !== window;
+        if (!inIframe) return false;
 
-        let mutationCount = 0;
+        const targetNode = window.parent.document.documentElement;
+        
+        // Initial sync
+        const colors = await window.getHaColors();
+        dotNetHelper.invokeMethodAsync('UpdateThemeFromJs', colors);
+
+        // Fall back to MutationObserver for DOM changes on the parent document
+        const config = { attributes: true, attributeFilter: ['style', 'class', 'data-theme'] };
+
         const callback = (mutationList, observer) => {
             clearTimeout(callback.timeout);
             callback.timeout = setTimeout(async () => {
-                mutationCount++;
-                const colors = await window.getHaColors();
-                dotNetHelper.invokeMethodAsync('UpdateThemeFromJs', colors);
-            }, 100);
+                const newColors = await window.getHaColors();
+                dotNetHelper.invokeMethodAsync('UpdateThemeFromJs', newColors);
+            }, 200);
         };
 
         const observer = new MutationObserver(callback);
@@ -80,6 +84,7 @@ window.observeHaThemeChange = (dotNetHelper) => {
         
         return true;
     } catch (e) {
+        console.debug('HomeRecall: Unable to observe Home Assistant theme changes.', e);
         return false;
     }
 };

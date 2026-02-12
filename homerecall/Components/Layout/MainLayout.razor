@@ -4,6 +4,7 @@
 @inject NavigationManager NavigationManager
 
 @using Microsoft.Extensions.Localization
+@using System.Text.Json.Serialization
 @inject IStringLocalizer<SharedResource> L
 
 <MudThemeProvider @ref="_mudThemeProvider" @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
@@ -85,24 +86,108 @@
         await Task.CompletedTask;
     }
     
+            private DotNetObjectReference<MainLayout>? _objRef;
+        
             protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && _mudThemeProvider != null)
-        {
-            try
             {
-                _isDarkMode = await _mudThemeProvider.GetSystemDarkModeAsync();
-                await _mudThemeProvider.WatchSystemDarkModeAsync(OnSystemPreferenceChanged);
+                if (firstRender)
+                {
+                    _objRef = DotNetObjectReference.Create(this);
+                    
+                    // Try to hook into HA theme
+                    bool haConnected = false;
+                    try
+                    {
+                        haConnected = await JS.InvokeAsync<bool>("window.observeHaThemeChange", _objRef);
+                    }
+                    catch
+                    {
+                        // Ignore if JS not available yet or other error
+                    }
+        
+                    // Only fallback to system preference if NOT in HA (or HA sync failed)
+                    if (!haConnected && _mudThemeProvider != null)
+                    {
+                        try
+                        {
+                            _isDarkMode = await _mudThemeProvider.GetSystemDarkModeAsync();
+                            await _mudThemeProvider.WatchSystemDarkModeAsync(OnSystemPreferenceChanged);
+                            StateHasChanged();
+                        }
+                        catch(Exception)
+                        {
+                            // Ignore JS Interop errors if prerendering or disconnected
+                        }
+                    }
+                }
+            }
+        
+            [JSInvokable]
+            public void UpdateThemeFromJs(HaThemeColors colors)
+            {
+                _isDarkMode = colors.IsDarkMode;
+                
+                var targetPalette = _isDarkMode ? (Palette)_theme.PaletteDark : (Palette)_theme.PaletteLight;
+        
+                if (colors.Primary != null) targetPalette.Primary = colors.Primary;
+                if (colors.Secondary != null) targetPalette.Secondary = colors.Secondary;
+                if (colors.Background != null) targetPalette.Background = colors.Background;
+                if (colors.Surface != null) targetPalette.Surface = colors.Surface;
+                if (colors.AppBarBackground != null) targetPalette.AppbarBackground = colors.AppBarBackground;
+                if (colors.AppBarText != null) targetPalette.AppbarText = colors.AppBarText;
+                if (colors.TextPrimary != null) targetPalette.TextPrimary = colors.TextPrimary;
+                if (colors.TextSecondary != null) targetPalette.TextSecondary = colors.TextSecondary;
+                if (colors.DrawerBackground != null) targetPalette.DrawerBackground = colors.DrawerBackground;
+                if (colors.DrawerText != null) targetPalette.DrawerText = colors.DrawerText;
+                if (colors.Success != null) targetPalette.Success = colors.Success;
+                if (colors.Error != null) targetPalette.Error = colors.Error;
+        
                 StateHasChanged();
             }
-            catch(Exception)
+        
+            public class HaThemeColors
             {
-                // Ignore JS Interop errors if prerendering or disconnected
+                [JsonPropertyName("isDarkMode")]
+                public bool IsDarkMode { get; set; }
+                
+                [JsonPropertyName("primary")]
+                public string? Primary { get; set; }
+                
+                [JsonPropertyName("secondary")]
+                public string? Secondary { get; set; }
+                
+                [JsonPropertyName("background")]
+                public string? Background { get; set; }
+                
+                [JsonPropertyName("surface")]
+                public string? Surface { get; set; }
+                
+                [JsonPropertyName("textPrimary")]
+                public string? TextPrimary { get; set; }
+                
+                [JsonPropertyName("textSecondary")]
+                public string? TextSecondary { get; set; }
+                
+                [JsonPropertyName("appBarBackground")]
+                public string? AppBarBackground { get; set; }
+                
+                [JsonPropertyName("appBarText")]
+                public string? AppBarText { get; set; }
+                
+                [JsonPropertyName("drawerBackground")]
+                public string? DrawerBackground { get; set; }
+                
+                [JsonPropertyName("drawerText")]
+                public string? DrawerText { get; set; }
+        
+                [JsonPropertyName("success")]
+                public string? Success { get; set; }
+        
+                [JsonPropertyName("error")]
+                public string? Error { get; set; }
             }
-        }
-    }
-
-    private Task OnSystemPreferenceChanged(bool newValue)
+        
+            private Task OnSystemPreferenceChanged(bool newValue)
     {
         _isDarkMode = newValue;
         StateHasChanged();
@@ -141,6 +226,7 @@
 
     public void Dispose()
     {
+        _objRef?.Dispose();
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
