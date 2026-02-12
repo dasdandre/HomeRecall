@@ -24,12 +24,16 @@ jobs:
         include:
           - arch: amd64
             base: ghcr.io/home-assistant/amd64-base:latest
+            platform: linux/amd64
           - arch: aarch64
             base: ghcr.io/home-assistant/aarch64-base:latest
+            platform: linux/arm64
           - arch: armv7
             base: ghcr.io/home-assistant/armv7-base:latest
+            platform: linux/arm/v7
           - arch: armhf
             base: ghcr.io/home-assistant/armhf-base:latest
+            platform: linux/arm/v7
 
     steps:
       - name: Checkout repository
@@ -59,7 +63,7 @@ jobs:
         with:
           context: ./homerecall
           file: ./homerecall/Dockerfile
-          platforms: linux/${{ matrix.arch }}
+          platforms: ${{ matrix.platform }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
