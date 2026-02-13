@@ -1,4 +1,8 @@
-namespace HomeRecall.Services;
+namespace HomeRecall.Services.Strategies;
+
+using HomeRecall.Services;
+using HomeRecall.Persistence.Entities;
+using HomeRecall.Persistence.Enums;
 using System.Net.Http.Json;
 
 public class WledStrategy : IDeviceStrategy

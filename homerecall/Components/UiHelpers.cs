@@ -1,5 +1,5 @@
 using MudBlazor;
-using HomeRecall;
+using HomeRecall.Persistence.Enums;
 
 namespace HomeRecall.Components;
 

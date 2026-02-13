@@ -1,3 +1,5 @@
+using HomeRecall.Persistence.Enums;
+
 namespace HomeRecall.Services;
 
 public record ScanProgressReport(int Percent, int FoundCount, DiscoveredDevice? LatestDevice = null);

@@ -2,6 +2,9 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Linq;
 
+using HomeRecall.Persistence.Enums;
+using HomeRecall.Utilities;
+
 namespace HomeRecall.Services;
 
 public class DeviceScanner : IDeviceScanner
@@ -62,7 +65,7 @@ public class DeviceScanner : IDeviceScanner
                         var device = await strategy.ProbeAsync(ip, client);
                         if (device != null)
                         {
-                            device.MacAddress = ServiceHelpers.NormalizeMac(device.MacAddress);                        
+                            device.MacAddress = NetworkUtils.NormalizeMac(device.MacAddress);                        
                             _logger.LogInformation("Found device {Type} at {Ip} ({Name})", device.Type, device.IpAddress, device.Name);
                             foundDevices.Add(device);
                             foundDevice = device;

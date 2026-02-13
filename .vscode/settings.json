@@ -1,0 +1,9 @@
+{
+    "files.exclude": {
+        "**/bin": true,
+        "**/obj": true,
+        "**/data": true,
+        "**/backups": true,
+        "**/config": true
+    }
+}

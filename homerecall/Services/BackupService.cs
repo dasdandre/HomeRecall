@@ -2,6 +2,8 @@ using System.Text;
 using System.Security.Cryptography;
 using System.IO.Compression;
 using Microsoft.EntityFrameworkCore;
+using HomeRecall.Persistence;
+using HomeRecall.Persistence.Entities;
 
 namespace HomeRecall.Services;
 

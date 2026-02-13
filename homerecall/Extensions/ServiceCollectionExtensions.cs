@@ -1,15 +1,10 @@
-using System.Linq;
+using HomeRecall.Services;
+using HomeRecall.Services.Strategies;
 
-namespace HomeRecall.Services;
+namespace HomeRecall.Extensions;
 
-public static class ServiceHelpers
+public static class ServiceCollectionExtensions
 {
-        public static string NormalizeMac(string? mac)
-    {
-        if (string.IsNullOrWhiteSpace(mac)) return string.Empty;
-        return new string(mac.Where(char.IsLetterOrDigit).ToArray()).ToUpper();
-    }
-    
     public static void AddDeviceStrategies(this IServiceCollection services)
     {
         services.AddScoped<IDeviceStrategy, TasmotaStrategy>();

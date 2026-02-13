@@ -2,6 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using HomeRecall;
 using HomeRecall.Components;
 using MudBlazor.Services;
+using HomeRecall.Services;
+using HomeRecall.Persistence;
+using HomeRecall.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,10 +13,10 @@ builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 
-builder.Services.AddScoped<HomeRecall.Services.IBackupService, HomeRecall.Services.BackupService>();
+builder.Services.AddScoped<IBackupService, BackupService>();
 // Register all strategies
-HomeRecall.Services.ServiceHelpers.AddDeviceStrategies(builder.Services);
-builder.Services.AddScoped<HomeRecall.Services.IDeviceScanner, HomeRecall.Services.DeviceScanner>();
+builder.Services.AddDeviceStrategies();
+builder.Services.AddScoped<IDeviceScanner, DeviceScanner>();
 
 builder.Services.AddHostedService<HomeRecall.Services.BackupScheduler>();
 

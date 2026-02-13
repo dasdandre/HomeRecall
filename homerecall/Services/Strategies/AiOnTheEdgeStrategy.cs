@@ -1,5 +1,9 @@
 using System.Text.RegularExpressions;
-namespace HomeRecall.Services;
+namespace HomeRecall.Services.Strategies;
+
+using HomeRecall.Services;
+using HomeRecall.Persistence.Entities;
+using HomeRecall.Persistence.Enums;
 
 public class AiOnTheEdgeStrategy : IDeviceStrategy
 {

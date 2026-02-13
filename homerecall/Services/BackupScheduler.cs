@@ -2,6 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using HomeRecall.Persistence;
+using HomeRecall.Persistence.Entities;
+using HomeRecall.Persistence.Enums;
 
 namespace HomeRecall.Services;
 

@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
+using HomeRecall.Persistence;
+
 namespace HomeRecall.Migrations
 {
     [DbContext(typeof(BackupContext))]

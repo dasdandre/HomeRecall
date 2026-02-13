@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using HomeRecall.Persistence.Entities;
+using HomeRecall.Persistence.Enums;
 
-namespace HomeRecall;
+namespace HomeRecall.Persistence;
 
 public class BackupContext : DbContext
 {

@@ -1,3 +1,6 @@
+using HomeRecall.Persistence.Entities;
+using HomeRecall.Persistence.Enums;
+
 namespace HomeRecall.Services;
 
 public class DiscoveredDevice
