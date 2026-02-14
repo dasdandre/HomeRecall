@@ -312,4 +312,25 @@
   <data name="Settings_Appearance_RelativeTime" xml:space="preserve">
     <value>Use relative time format (e.g. "5 minutes ago")</value>
   </data>
+  <data name="AddDevice_Scanning" xml:space="preserve">
+    <value>Scanning {0}...</value>
+  </data>
+  <data name="AddDevice_AlreadyExists" xml:space="preserve">
+    <value>A device with this IP already exists.</value>
+  </data>
+  <data name="AddDevice_TypeMismatch" xml:space="preserve">
+    <value>Found a device, but it is a {0}, not the selected type.</value>
+  </data>
+  <data name="AddDevice_NotFound" xml:space="preserve">
+    <value>No compatible device found at {0}.</value>
+  </data>
+  <data name="AddDevice_ScanAndAdd" xml:space="preserve">
+    <value>Discover &amp; Add</value>
+  </data>
+  <data name="AddDevice_IpRequired" xml:space="preserve">
+    <value>IP Address is required.</value>
+  </data>
+  <data name="AddDevice_InvalidIp" xml:space="preserve">
+    <value>Invalid IP Address format.</value>
+  </data>
 </root>

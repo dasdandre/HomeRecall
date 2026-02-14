@@ -24,4 +24,3 @@ app.EnsureDatabaseCreated();
 app.UseHomeRecallMiddleware();
 
 app.Run();
-

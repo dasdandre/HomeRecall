@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
+  <data name="AddDevice_Scanning" xml:space="preserve">
+    <value>Scanne {0}...</value>
+  </data>
+  <data name="AddDevice_AlreadyExists" xml:space="preserve">
+    <value>Ein Gerät mit dieser IP existiert bereits.</value>
+  </data>
+  <data name="AddDevice_TypeMismatch" xml:space="preserve">
+    <value>Gerät gefunden, aber es ist ein {0}, nicht der gewählte Typ.</value>
+  </data>
+  <data name="AddDevice_NotFound" xml:space="preserve">
+    <value>Kein kompatibles Gerät unter {0} gefunden.</value>
+  </data>
+  <data name="AddDevice_ScanAndAdd" xml:space="preserve">
+    <value>Suchen &amp; Hinzufügen</value>
+  </data>
   <data name="Devices_Title" xml:space="preserve">
     <value>Geräte</value>
   </data>
@@ -308,5 +323,11 @@
   </data>
   <data name="Settings_Appearance_RelativeTime" xml:space="preserve">
     <value>Relative Zeitangaben verwenden (z.B. "vor 5 Minuten")</value>
+  </data>
+  <data name="AddDevice_IpRequired" xml:space="preserve">
+    <value>IP-Adresse ist erforderlich.</value>
+  </data>
+  <data name="AddDevice_InvalidIp" xml:space="preserve">
+    <value>Ungültiges IP-Adressformat.</value>
   </data>
 </root>
