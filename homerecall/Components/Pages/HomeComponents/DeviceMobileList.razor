@@ -1,11 +1,3 @@
-@using HomeRecall
-@using HomeRecall.Services
-@using Microsoft.Extensions.Localization
-@using Microsoft.EntityFrameworkCore
-@using HomeRecall.Components
-@inject IStringLocalizer<SharedResource> L
-@inject BackupContext Context
-
 <!-- Mobile View: Card List -->
 <!-- Displayed on small screens only -->
 <MudHidden Breakpoint="Breakpoint.MdAndUp">
@@ -111,35 +103,3 @@
         }
     </MudGrid>
 </MudHidden>
-
-@code {
-    [Parameter] public List<Device> Devices { get; set; } = new();
-    [Parameter] public HashSet<int> IsBackingUp { get; set; } = new();
-    
-    // Filtering Parameters
-    [Parameter] public string SearchString { get; set; } = "";
-    [Parameter] public EventCallback<string> SearchStringChanged { get; set; }
-
-    [Parameter] public DeviceType? FilterType { get; set; }
-    [Parameter] public EventCallback<DeviceType?> FilterTypeChanged { get; set; }
-
-    [Parameter] public Func<Device, bool> FilterFunc { get; set; } = _ => true;
-
-    // Action Callbacks
-    [Parameter] public EventCallback<Device> OnBackupDevice { get; set; }
-    [Parameter] public EventCallback<int> OnNavigateToBackups { get; set; }
-    [Parameter] public EventCallback<Device> OnEditDevice { get; set; }
-    [Parameter] public EventCallback<Device> OnDeleteDevice { get; set; }
-
-    private async Task OnSearchChanged(string value)
-    {
-        SearchString = value;
-        await SearchStringChanged.InvokeAsync(value);
-    }
-
-    private async Task OnFilterChanged(DeviceType? value)
-    {
-        FilterType = value;
-        await FilterTypeChanged.InvokeAsync(value);
-    }
-}

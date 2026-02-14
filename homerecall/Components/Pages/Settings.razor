@@ -1,11 +1,4 @@
 @page "/settings"
-@using Microsoft.Extensions.Localization
-@using System.Globalization
-@using Microsoft.EntityFrameworkCore
-@inject IStringLocalizer<SharedResource> L
-@inject NavigationManager NavigationManager
-@inject BackupContext Context
-@inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4">@L["Settings_Title"]</MudText>
 
@@ -77,44 +70,3 @@
 }
 
 <MudText Class="mt-4">Current Backup Path: @(Environment.GetEnvironmentVariable("backup_path") ?? Path.Combine(Directory.GetCurrentDirectory(), "backups"))</MudText>
-
-@code {
-    private string _currentLanguage = "auto";
-    private AppSettings? _settings;
-
-    protected override async Task OnInitializedAsync()
-    {
-        var culture = CultureInfo.CurrentCulture.Name;
-        if (culture.StartsWith("de")) _currentLanguage = "de";
-        else if (culture.StartsWith("en")) _currentLanguage = "en";
-
-        _settings = await Context.Settings.FindAsync(1);
-        if (_settings == null)
-        {
-            // Fallback should not happen due to seeding
-            _settings = new AppSettings { Id = 1 };
-            Context.Settings.Add(_settings);
-            await Context.SaveChangesAsync();
-        }
-    }
-
-    private void ChangeLanguage(string language)
-    {
-        _currentLanguage = language;
-        var uri = new Uri(NavigationManager.Uri)
-            .GetComponents(UriComponents.PathAndQuery, UriFormat.Unescaped);
-
-        var culture = language == "auto" ? "" : $"?culture={language}";
-        NavigationManager.NavigateTo($"api/Culture/Set?culture={language}&redirectUri={Uri.EscapeDataString(uri)}", true);
-    }
-
-    private async Task SaveSettings()
-    {
-        if (_settings != null)
-        {
-            Context.Settings.Update(_settings);
-            await Context.SaveChangesAsync();
-            Snackbar.Add(L["Settings_Saved_Success"], Severity.Success);
-        }
-    }
-}

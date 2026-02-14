@@ -1,9 +1,3 @@
-@using HomeRecall
-@using Microsoft.Extensions.Localization
-@inject IStringLocalizer<SharedResource> L
-@inject BackupContext Context
-@inject ISnackbar Snackbar
-
 <MudDialog>
     <DialogContent>
         <MudForm @bind-IsValid="@success">
@@ -16,45 +10,3 @@
         <MudButton Color="Color.Primary" OnClick="Submit" Disabled="@(!success)">@L["Common_Save"]</MudButton>
     </DialogActions>
 </MudDialog>
-
-@code {
-    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
-
-    [Parameter] public int DeviceId { get; set; }
-    [Parameter] public string CurrentName { get; set; } = string.Empty;
-    [Parameter] public bool ExcludeFromAutoBackup { get; set; } = false;
-
-    public string NewName { get; set; } = string.Empty;
-
-    private bool success;
-
-    protected override void OnInitialized()
-    {
-        NewName = CurrentName;
-    }
-
-    void Cancel() => MudDialog.Cancel();
-
-    private async Task Submit()
-    {
-        var device = await Context.Devices.FindAsync(DeviceId);
-        if (device != null)
-        {
-            device.Name = NewName;
-            
-            // If Exclude is true, we set Override to false (meaning: explicit NO).
-            // If Exclude is false, we set Override to null (default/inherit).
-            // (Assuming we only support "Exclude" or "Default", not "Force On" for now based on user request)
-            device.AutoBackupOverride = ExcludeFromAutoBackup ? false : null;
-
-            await Context.SaveChangesAsync();
-            Snackbar.Add(L["EditDevice_Success"], Severity.Success);
-            MudDialog.Close(DialogResult.Ok(true));
-        }
-        else
-        {
-            Snackbar.Add(L["RenameDevice_NotFound"], Severity.Error);
-            MudDialog.Cancel();
-        }
-    }
-}

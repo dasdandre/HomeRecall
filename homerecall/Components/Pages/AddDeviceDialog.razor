@@ -1,9 +1,3 @@
-@using HomeRecall
-@using Microsoft.Extensions.Localization
-@inject IStringLocalizer<SharedResource> L
-@inject BackupContext Context
-@inject ISnackbar Snackbar
-
 <MudDialog>
     <DialogContent>
         <MudForm @bind-IsValid="@success">
@@ -22,20 +16,3 @@
         <MudButton Color="Color.Primary" OnClick="Submit" Disabled="@(!success)">@L["Common_Save"]</MudButton>
     </DialogActions>
 </MudDialog>
-
-@code {
-    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
-
-    private Device model = new Device();
-    private bool success;
-
-    void Cancel() => MudDialog.Cancel();
-
-    private async Task Submit()
-    {
-        Context.Devices.Add(model);
-        await Context.SaveChangesAsync();
-        Snackbar.Add(L["AddDevice_Success"], Severity.Success);
-        MudDialog.Close(DialogResult.Ok(true));
-    }
-}
