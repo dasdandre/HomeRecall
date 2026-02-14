@@ -1,8 +1,10 @@
-namespace HomeRecall.Services.Strategies;
-
+using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using HomeRecall.Services;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
+
+namespace HomeRecall.Services.Strategies;
 
 public class OpenHaspStrategy : IDeviceStrategy
 {
@@ -12,24 +14,25 @@ public class OpenHaspStrategy : IDeviceStrategy
     {
         try
         {
-            var response = await httpClient.GetAsync($"http://{ip}/json");
+            using var response = await httpClient.GetAsync($"http://{ip}/api/info/");
             if (response.IsSuccessStatusCode)
             {
-                 var info = await httpClient.GetFromJsonAsync<OpenHaspInfo>($"http://{ip}/json");
-                 if (info?.Version != null)
-                 {
-                     return new DiscoveredDevice 
-                     { 
-                         IpAddress = ip, 
-                         Type = DeviceType.OpenHasp, 
-                         Name = $"OpenHasp-{ip.Split('.').Last()}", 
-                         MacAddress = info.Mac,
-                         FirmwareVersion = info.Version 
-                     };
-                 }
+                var info = await response.Content.ReadFromJsonAsync<OpenHaspInfo>();
+                if (info?.OpenHasp != null)
+                {
+                    return new DiscoveredDevice
+                    {
+                        IpAddress = ip,
+                        Type = DeviceType.OpenHasp,
+                        Name = $"OpenHasp-{ip.Split('.').Last()}",
+                        MacAddress = info.Wifi?.MacAddress,
+                        FirmwareVersion = info.OpenHasp.Version ?? string.Empty,
+                        HardwareModel = info.Module?.Model
+                    };
+                }
             }
         }
-        catch {}
+        catch { }
         return null;
     }
 
@@ -37,32 +40,73 @@ public class OpenHaspStrategy : IDeviceStrategy
     {
         var files = new List<BackupFile>();
 
-        try 
-        {
-            var config = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/edit?download=/config.json");
-            files.Add(new("config.json", config));
-        }
-        catch { /* Log if necessary via ILogger injection, or just ignore optional files */ }
-
         try
         {
-            var pages = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/edit?download=/pages.jsonl");
-            files.Add(new("pages.jsonl", pages));
+            var fileList = await httpClient.GetFromJsonAsync<List<OpenHaspFile>>($"http://{device.IpAddress}/list?dir=/");
+            if (fileList != null)
+            {
+                foreach (var file in fileList.Where(f => f.Type == "file" && !string.IsNullOrEmpty(f.Name)))
+                {
+                    try
+                    {
+                        var content = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/{file.Name}?download=true");
+                        files.Add(new(file.Name!, content));
+                    }
+                    catch { /* Skip individual file if it fails */ }
+                }
+            }
         }
         catch { }
-        
+
         string version = string.Empty;
-        // openHASP does not have a simple version endpoint in every build.
-        // But /json returns system info.
-        try 
+        try
         {
-             var info = await httpClient.GetFromJsonAsync<OpenHaspInfo>($"http://{device.IpAddress}/json");
-             if (info?.Version != null) version = info.Version;
+            using var response = await httpClient.GetAsync($"http://{device.IpAddress}/api/info/");
+            if (response.IsSuccessStatusCode)
+            {
+                var info = await response.Content.ReadFromJsonAsync<OpenHaspInfo>();
+                if (info?.OpenHasp?.Version != null) version = info.OpenHasp.Version;
+            }
         }
         catch { }
 
         return new DeviceBackupResult(files, version);
     }
-    
-    private class OpenHaspInfo { public string? Version { get; set; } public string? Mac { get; set; } }
+
+    private class OpenHaspFile
+    {
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+    }
+
+    private class OpenHaspInfo
+    {
+        [JsonPropertyName("openHASP")]
+        public OpenHaspData? OpenHasp { get; set; }
+
+        [JsonPropertyName("Wifi")]
+        public WifiData? Wifi { get; set; }
+
+        [JsonPropertyName("Module")]
+        public ModuleData? Module { get; set; }
+    }
+
+    private class OpenHaspData
+    {
+        public string? Version { get; set; }
+    }
+
+    private class WifiData
+    {
+        [JsonPropertyName("MAC Address")]
+        public string? MacAddress { get; set; }
+    }
+
+    private class ModuleData
+    {
+        public string? Model { get; set; }
+    }
 }
