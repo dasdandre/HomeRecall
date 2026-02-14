@@ -22,10 +22,11 @@ HomeRecall supports configuration backup for a variety of popular firmware and d
 *   **Shelly** (Gen 1, Gen 2/3 Plus/Pro)
 *   **WLED**
 *   **Awtrix Light**
+*   **openHASP** (tested with 0.63)
 *   **OpenDTU** (untested alpha)
 *   **AhoyDTU** (untested alpha)
 *   **AI-on-the-Edge** (untested alpha)
-*   **openHASP** (untested alpha)
+
 
 ### 💾 Intelligent Backup System
 *   **Versioning & History:** Keeps a history of configuration changes.
@@ -49,7 +50,7 @@ HomeRecall supports configuration backup for a variety of popular firmware and d
 
 This project utilizes a modern technology stack to ensure performance and maintainability:
 
-*   **Framework:** .NET 10 (Preview/RC)
+*   **Framework:** .NET 10 (LTS)
 *   **UI:** Blazor Server with MudBlazor (Material Design)
 *   **Data:** SQLite with Entity Framework Core
 *   **Runtime:** Docker (Alpine Linux base)
@@ -94,7 +95,7 @@ docker run -d -p 5000:8080 -v $(pwd)/data:/config -v $(pwd)/backups:/backup home
 ```
 
 ### Local Development (.NET)
-Requires .NET 10 SDK (Preview).
+Requires .NET 10 SDK.
 
 ```bash
 cd homerecall
