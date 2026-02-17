@@ -2,16 +2,15 @@ using System.Text;
 using System.Text.Json;
 using HomeRecall.Persistence;
 using HomeRecall.Persistence.Entities;
+using HomeRecall.Services.Strategies;
 using HomeRecall.Utilities;
-using HomeRecall.Services.Strategies;
-using HomeRecall.Services.Strategies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
-using MQTTnet.Protocol;
 using MQTTnet.Packets;
+using MQTTnet.Protocol;
 
 namespace HomeRecall.Services;
 
@@ -21,14 +20,14 @@ public class MqttService : IMqttService, IDisposable
     private readonly IDataProtector _protector;
     private readonly ILogger<MqttService> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
-    private IManagedMqttClient? _mqttClient;    
+    private IManagedMqttClient? _mqttClient;
     private string[] _excludedDeviceTypes = Array.Empty<string>();
-    
+
     private MqttConnectionStatus _status = MqttConnectionStatus.Disconnected;
-    public MqttConnectionStatus Status 
-    { 
+    public MqttConnectionStatus Status
+    {
         get => _status;
-        private set 
+        private set
         {
             if (_status != value)
             {
@@ -52,14 +51,14 @@ public class MqttService : IMqttService, IDisposable
         _httpClientFactory = httpClientFactory;
         _strategies = strategies;
         _mqttStrategies = strategies.OfType<IMqttDeviceStrategy>();
-        
+
         // Start connection on a background task to not block initial registration
         Task.Run(() => ReconnectAsync());
     }
 
     public async Task ReconnectAsync()
     {
-        try 
+        try
         {
             if (_mqttClient != null)
             {
@@ -112,7 +111,7 @@ public class MqttService : IMqttService, IDisposable
                 .WithClientId($"HomeRecall-{Guid.NewGuid().ToString("N").Substring(0, 6)}")
                 .WithCleanSession();
 
-            if (settings.MqttHost.StartsWith("ws://", StringComparison.OrdinalIgnoreCase) || 
+            if (settings.MqttHost.StartsWith("ws://", StringComparison.OrdinalIgnoreCase) ||
                 settings.MqttHost.StartsWith("wss://", StringComparison.OrdinalIgnoreCase))
             {
                 messageBuilder.WithWebSocketServer(o => o.WithUri(settings.MqttHost));
@@ -132,14 +131,16 @@ public class MqttService : IMqttService, IDisposable
                 .WithClientOptions(messageBuilder.Build())
                 .Build();
 
-            _mqttClient.ConnectedAsync += e => {
+            _mqttClient.ConnectedAsync += e =>
+            {
                 Status = MqttConnectionStatus.Connected;
                 LastErrorMessage = null;
                 _logger.LogInformation("Connected to MQTT Broker");
                 return Task.CompletedTask;
             };
 
-            _mqttClient.DisconnectedAsync += e => {
+            _mqttClient.DisconnectedAsync += e =>
+            {
                 string reason = e.Reason.ToString();
                 if (e.Exception != null)
                 {
@@ -159,7 +160,7 @@ public class MqttService : IMqttService, IDisposable
 
             // Collect discovery topics from non-excluded strategies
             _excludedDeviceTypes = settings.MqttExcludedDeviceTypes?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>();
-            
+
             var topics = _mqttStrategies
                 .Where(s => !_excludedDeviceTypes.Contains(s.SupportedType.ToString()))
                 .SelectMany(s => s.MqttDiscoveryTopics)
@@ -175,7 +176,8 @@ public class MqttService : IMqttService, IDisposable
             await _mqttClient.StartAsync(options);
 
             // Trigger initial discovery and start loop
-            _ = Task.Run(async () => {
+            _ = Task.Run(async () =>
+            {
                 await Task.Delay(2000); // Wait a bit for connection to stabilize
                 await PublishDiscoveryMessages();
                 await StartDiscoveryLoop();
@@ -195,7 +197,7 @@ public class MqttService : IMqttService, IDisposable
         {
             var topic = e.ApplicationMessage.Topic;
             var payload = e.ApplicationMessage.ConvertPayloadToString();
-            
+
             foreach (var strategy in _mqttStrategies)
             {
                 // Skip excluded device types
@@ -207,7 +209,7 @@ public class MqttService : IMqttService, IDisposable
                     continue;
 
                 var discovered = strategy.DiscoverFromMqtt(topic, payload);
-                
+
                 // discovery always runs via mac address
                 if (discovered != null && !string.IsNullOrEmpty(discovered.MacAddress))
                 {
@@ -265,6 +267,9 @@ public class MqttService : IMqttService, IDisposable
     // Cache of known devices: MacAddress -> IpAddress
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _knownDevices = new();
 
+    // Locks for processing devices by MacAddress
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> _processingLocks = new();
+
     private async Task HandleDiscoveredDevice(DiscoveredDevice discovered)
     {
         // Optimization: Check cache first to avoid creating a scope and hitting the DB
@@ -274,8 +279,20 @@ public class MqttService : IMqttService, IDisposable
             return;
         }
 
+        // Get or add a lock for this specific MAC address
+        var deviceLock = _processingLocks.GetOrAdd(discovered.MacAddress, _ => new SemaphoreSlim(1, 1));
+
+        // Wait for the lock
+        await deviceLock.WaitAsync();
+
         try
         {
+            // Double-check: Check cache again after acquiring lock in case another thread processed it
+            if (_knownDevices.TryGetValue(discovered.MacAddress, out knownIp) && knownIp == discovered.IpAddress)
+            {
+                return;
+            }
+
             using var scope = _scopeFactory.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<BackupContext>();
             var settings = await context.Settings.FirstOrDefaultAsync();
@@ -283,7 +300,7 @@ public class MqttService : IMqttService, IDisposable
             if (settings?.MqttAutoAdd == true)
             {
                 // does a device with this mac address already exist?
-                var foundDevice = await context.Devices.FirstOrDefaultAsync(d => d.MacAddress == discovered.MacAddress );
+                var foundDevice = await context.Devices.FirstOrDefaultAsync(d => d.MacAddress == discovered.MacAddress);
                 if (foundDevice == null)
                 {
                     var strategy = _strategies.FirstOrDefault(s => s.SupportedType == discovered.Type);
@@ -291,10 +308,10 @@ public class MqttService : IMqttService, IDisposable
                     {
                         _logger.LogWarning("No strategy found for device type {Type}", discovered.Type);
                         return;
-                    }   
+                    }
 
                     // probe the device to get all information
-                    var probedDevice = await strategy.ProbeAsync(discovered.IpAddress, _httpClientFactory.CreateClient());     
+                    var probedDevice = await strategy.ProbeAsync(discovered.IpAddress, _httpClientFactory.CreateClient());
                     if (probedDevice == null)
                     {
                         _logger.LogWarning("Failed to probe device {IpAddress}", discovered.IpAddress);
@@ -311,18 +328,19 @@ public class MqttService : IMqttService, IDisposable
                         HardwareModel = probedDevice.HardwareModel,
                         CurrentFirmwareVersion = probedDevice.FirmwareVersion
                     };
-                    
+
                     // add device to context
                     context.Devices.Add(device);
                     // save changes
                     await context.SaveChangesAsync();
-                    
+
                     // Update cache
                     _knownDevices.AddOrUpdate(device.MacAddress, device.IpAddress, (k, v) => device.IpAddress);
-                    
+
                     _logger.LogInformation("Auto-added device via MQTT: {Name} {Type} ({IpAddress})", device.Name, device.Type, device.IpAddress);
                 }
-                else{
+                else
+                {
                     // Update cache for existing device even if no changes, so we skip next time
                     _knownDevices.AddOrUpdate(foundDevice.MacAddress, foundDevice.IpAddress, (k, v) => foundDevice.IpAddress);
 
@@ -334,22 +352,22 @@ public class MqttService : IMqttService, IDisposable
                         {
                             _logger.LogWarning("No strategy found for device type {Type}", discovered.Type);
                             return;
-                        }   
+                        }
 
                         // probe the device to get all information
-                        var probedDevice =  await strategy.ProbeAsync(discovered.IpAddress, _httpClientFactory.CreateClient());     
+                        var probedDevice = await strategy.ProbeAsync(discovered.IpAddress, _httpClientFactory.CreateClient());
                         if (probedDevice == null)
                         {
                             _logger.LogWarning("Failed to probe device {IpAddress}", discovered.IpAddress);
                             return;
                         }
-                    
+
                         // update device ip address
                         if (probedDevice.Name == foundDevice.Name)
-                        {                            
+                        {
                             foundDevice.IpAddress = discovered.IpAddress;
                             await context.SaveChangesAsync();
-                            
+
                             // Update cache
                             _knownDevices[foundDevice.MacAddress] = foundDevice.IpAddress;
 
@@ -362,6 +380,10 @@ public class MqttService : IMqttService, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error adding discovered device");
+        }
+        finally
+        {
+            deviceLock.Release();
         }
     }
 
