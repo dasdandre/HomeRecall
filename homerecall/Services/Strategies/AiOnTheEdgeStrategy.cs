@@ -5,11 +5,11 @@ using HomeRecall.Services;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
 
-public class AiOnTheEdgeStrategy : BaseDeviceStrategy
+public class AiOnTheEdgeStrategy : IDeviceStrategy
 {
-    public override DeviceType SupportedType => DeviceType.AiOnTheEdge;
+    public DeviceType SupportedType => DeviceType.AiOnTheEdge;
 
-    public override async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
         {
@@ -62,7 +62,7 @@ public class AiOnTheEdgeStrategy : BaseDeviceStrategy
         return null;
     }
 
-    public override async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
+    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();
 

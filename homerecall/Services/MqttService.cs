@@ -3,6 +3,8 @@ using System.Text.Json;
 using HomeRecall.Persistence;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Utilities;
+using HomeRecall.Services.Strategies;
+using HomeRecall.Services.Strategies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using MQTTnet;
@@ -40,6 +42,7 @@ public class MqttService : IMqttService, IDisposable
     public event Action? StatusChanged;
 
     private readonly IEnumerable<IDeviceStrategy> _strategies;
+    private readonly IEnumerable<IMqttDeviceStrategy> _mqttStrategies;
 
     public MqttService(IServiceScopeFactory scopeFactory, IDataProtectionProvider protectionProvider, ILogger<MqttService> logger, IHttpClientFactory httpClientFactory, IEnumerable<IDeviceStrategy> strategies)
     {
@@ -48,6 +51,7 @@ public class MqttService : IMqttService, IDisposable
         _logger = logger;
         _httpClientFactory = httpClientFactory;
         _strategies = strategies;
+        _mqttStrategies = strategies.OfType<IMqttDeviceStrategy>();
         
         // Start connection on a background task to not block initial registration
         Task.Run(() => ReconnectAsync());
@@ -156,7 +160,7 @@ public class MqttService : IMqttService, IDisposable
             // Collect discovery topics from non-excluded strategies
             _excludedDeviceTypes = settings.MqttExcludedDeviceTypes?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>();
             
-            var topics = _strategies
+            var topics = _mqttStrategies
                 .Where(s => !_excludedDeviceTypes.Contains(s.SupportedType.ToString()))
                 .SelectMany(s => s.MqttDiscoveryTopics)
                 .Distinct()
@@ -192,7 +196,7 @@ public class MqttService : IMqttService, IDisposable
             var topic = e.ApplicationMessage.Topic;
             var payload = e.ApplicationMessage.ConvertPayloadToString();
             
-            foreach (var strategy in _strategies)
+            foreach (var strategy in _mqttStrategies)
             {
                 // Skip excluded device types
                 if (_excludedDeviceTypes.Contains(strategy.SupportedType.ToString()))
@@ -380,7 +384,7 @@ public class MqttService : IMqttService, IDisposable
 
         try
         {
-            foreach (var strategy in _strategies)
+            foreach (var strategy in _mqttStrategies)
             {
                 var msg = strategy.DiscoveryMessage;
                 if (msg != null)
@@ -390,6 +394,7 @@ public class MqttService : IMqttService, IDisposable
                 }
             }
         }
+
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error publishing discovery messages");

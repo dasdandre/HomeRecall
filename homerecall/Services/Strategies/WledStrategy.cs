@@ -5,11 +5,11 @@ using HomeRecall.Persistence.Enums;
 
 namespace HomeRecall.Services.Strategies;
 
-public class WledStrategy : BaseDeviceStrategy
+public class WledStrategy : IMqttDeviceStrategy
 {
-    public override DeviceType SupportedType => DeviceType.Wled;
+    public DeviceType SupportedType => DeviceType.Wled;
 
-    public override async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
         {
@@ -32,7 +32,7 @@ public class WledStrategy : BaseDeviceStrategy
         return null;
     }
 
-    public override async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
+    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();
         
@@ -57,7 +57,7 @@ public class WledStrategy : BaseDeviceStrategy
         return new DeviceBackupResult(files, version);
     }
 
-    public override DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
+    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
     {
         // WLED version info on wled/+/v
         if (topic.StartsWith("wled/") && topic.EndsWith("/v"))
@@ -68,7 +68,9 @@ public class WledStrategy : BaseDeviceStrategy
         return null;
     }
 
-    public override IEnumerable<string> MqttDiscoveryTopics => new[] { "wled/+/v" };
+    public IEnumerable<string> MqttDiscoveryTopics => new[] { "wled/+/v" };
+
+    public MqttDiscoveryMessage? DiscoveryMessage => null;
 
     private class WledInfo 
     { 

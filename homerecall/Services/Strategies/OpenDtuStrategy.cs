@@ -5,11 +5,11 @@ using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
 using System.Net.Http.Json;
 
-public class OpenDtuStrategy : BaseDeviceStrategy
+public class OpenDtuStrategy : IDeviceStrategy
 {
-    public override DeviceType SupportedType => DeviceType.OpenDtu;
+    public DeviceType SupportedType => DeviceType.OpenDtu;
 
-    public override async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
         {
@@ -31,7 +31,7 @@ public class OpenDtuStrategy : BaseDeviceStrategy
         return null;
     }
 
-    public override async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
+    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var data = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/api/config");
         var files = new List<BackupFile> { new("config.json", data) };

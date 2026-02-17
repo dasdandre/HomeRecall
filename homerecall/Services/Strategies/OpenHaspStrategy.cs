@@ -7,11 +7,11 @@ using HomeRecall.Persistence.Enums;
 
 namespace HomeRecall.Services.Strategies;
 
-public class OpenHaspStrategy : BaseDeviceStrategy
+public class OpenHaspStrategy : IMqttDeviceStrategy
 {
-    public override DeviceType SupportedType => DeviceType.OpenHasp;
+    public DeviceType SupportedType => DeviceType.OpenHasp;
 
-    public override async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
         {
@@ -37,7 +37,7 @@ public class OpenHaspStrategy : BaseDeviceStrategy
         return null;
     }
 
-    public override async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
+    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();
 
@@ -74,7 +74,7 @@ public class OpenHaspStrategy : BaseDeviceStrategy
         return new DeviceBackupResult(files, version);
     }
 
-    public override DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
+    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
     {
         // openHASP status/info
         if (topic.EndsWith("/status/info"))
@@ -98,7 +98,9 @@ public class OpenHaspStrategy : BaseDeviceStrategy
         return null;
     }
 
-    public override IEnumerable<string> MqttDiscoveryTopics => new[] { "+/status/info" };
+    public IEnumerable<string> MqttDiscoveryTopics => new[] { "+/status/info" };
+
+    public MqttDiscoveryMessage? DiscoveryMessage => null;
 
     private class OpenHaspMqttInfo
     {

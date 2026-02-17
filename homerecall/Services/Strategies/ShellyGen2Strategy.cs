@@ -6,11 +6,11 @@ using HomeRecall.Persistence.Enums;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 
-public class ShellyGen2Strategy : BaseDeviceStrategy
+public class ShellyGen2Strategy : IDeviceStrategy
 {
-    public override DeviceType SupportedType => DeviceType.ShellyGen2;
+    public DeviceType SupportedType => DeviceType.ShellyGen2;
 
-    public override async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
         {
@@ -38,7 +38,7 @@ public class ShellyGen2Strategy : BaseDeviceStrategy
         return null;
     }
 
-    public override async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
+    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var data = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/rpc/Shelly.GetConfig");
         var files = new List<BackupFile> { new("config.json", data) };

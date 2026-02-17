@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Localization;
 using MudBlazor;
 using HomeRecall.Services;
+using HomeRecall.Services.Strategies;
 
 namespace HomeRecall.Components.Pages;
 
@@ -25,7 +26,7 @@ public partial class Settings : ComponentBase, IDisposable
     private string? _mqttPassword;
     private IDataProtector _protector = null!;
     private List<string> _excludedMqttTypes = new();
-    private List<IDeviceStrategy> _mqttCapableStrategies = new();
+    private List<IMqttDeviceStrategy> _mqttCapableStrategies = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -53,7 +54,7 @@ public partial class Settings : ComponentBase, IDisposable
         }
 
         _excludedMqttTypes = _settings.MqttExcludedDeviceTypes?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>();
-        _mqttCapableStrategies = Strategies.Where(s => s.MqttDiscoveryTopics.Any()).ToList();
+        _mqttCapableStrategies = Strategies.OfType<IMqttDeviceStrategy>().Where(s => s.MqttDiscoveryTopics.Any()).ToList();
     }
 
     private void OnStatusChanged()

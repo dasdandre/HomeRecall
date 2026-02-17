@@ -4,6 +4,7 @@ using System.IO.Compression;
 using Microsoft.EntityFrameworkCore;
 using HomeRecall.Persistence;
 using HomeRecall.Persistence.Entities;
+using HomeRecall.Services.Strategies;
 
 namespace HomeRecall.Services;
 

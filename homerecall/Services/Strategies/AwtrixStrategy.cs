@@ -5,9 +5,9 @@ using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
 using System.Net.Http.Json;
 
-public class AwtrixStrategy : BaseDeviceStrategy
+public class AwtrixStrategy : IDeviceStrategy
 {
-    public override DeviceType SupportedType => DeviceType.Awtrix;
+    public DeviceType SupportedType => DeviceType.Awtrix;
 
     private class AwtrixStats
     {
@@ -24,7 +24,7 @@ public class AwtrixStrategy : BaseDeviceStrategy
         public string? Type { get; set; }
     }
 
-    public override async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
         {
@@ -51,7 +51,7 @@ public class AwtrixStrategy : BaseDeviceStrategy
         return null;
     }
 
-    public override async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
+    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();
         await ScanDirectoryAsync(device.IpAddress, "/", files, httpClient);
