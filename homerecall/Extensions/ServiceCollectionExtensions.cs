@@ -80,13 +80,13 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static void AddDeviceStrategies(this IServiceCollection services)
     {
-        services.AddScoped<IDeviceStrategy, TasmotaStrategy>();
-        services.AddScoped<IDeviceStrategy, WledStrategy>();
-        services.AddScoped<IDeviceStrategy, ShellyStrategy>();
-        services.AddScoped<IDeviceStrategy, ShellyGen2Strategy>();
-        services.AddScoped<IDeviceStrategy, OpenDtuStrategy>();
-        services.AddScoped<IDeviceStrategy, AiOnTheEdgeStrategy>();
-        services.AddScoped<IDeviceStrategy, AwtrixStrategy>();
-        services.AddScoped<IDeviceStrategy, OpenHaspStrategy>();
+        services.AddSingleton<IDeviceStrategy, TasmotaStrategy>();
+        services.AddSingleton<IDeviceStrategy, WledStrategy>();
+        services.AddSingleton<IDeviceStrategy, ShellyStrategy>();
+        services.AddSingleton<IDeviceStrategy, ShellyGen2Strategy>();
+        services.AddSingleton<IDeviceStrategy, OpenDtuStrategy>();
+        services.AddSingleton<IDeviceStrategy, AiOnTheEdgeStrategy>();
+        services.AddSingleton<IDeviceStrategy, AwtrixStrategy>();
+        services.AddSingleton<IDeviceStrategy, OpenHaspStrategy>();
     }
 }

@@ -39,12 +39,15 @@ public class MqttService : IMqttService, IDisposable
     public string? LastErrorMessage { get; private set; }
     public event Action? StatusChanged;
 
-    public MqttService(IServiceScopeFactory scopeFactory, IDataProtectionProvider protectionProvider, ILogger<MqttService> logger, IHttpClientFactory httpClientFactory)
+    private readonly IEnumerable<IDeviceStrategy> _strategies;
+
+    public MqttService(IServiceScopeFactory scopeFactory, IDataProtectionProvider protectionProvider, ILogger<MqttService> logger, IHttpClientFactory httpClientFactory, IEnumerable<IDeviceStrategy> strategies)
     {
         _scopeFactory = scopeFactory;
         _protector = protectionProvider.CreateProtector("MqttPassword");
         _logger = logger;
         _httpClientFactory = httpClientFactory;
+        _strategies = strategies;
         
         // Start connection on a background task to not block initial registration
         Task.Run(() => ReconnectAsync());
@@ -69,6 +72,17 @@ public class MqttService : IMqttService, IDisposable
             {
                 Status = MqttConnectionStatus.Disabled;
                 return;
+            }
+
+            // Pre-load known devices to cache
+            _knownDevices.Clear();
+            var devices = await context.Devices.Select(d => new { d.MacAddress, d.IpAddress }).ToListAsync();
+            foreach (var d in devices)
+            {
+                if (!string.IsNullOrEmpty(d.MacAddress) && !string.IsNullOrEmpty(d.IpAddress))
+                {
+                    _knownDevices[d.MacAddress] = d.IpAddress;
+                }
             }
 
             Status = MqttConnectionStatus.Connecting;
@@ -141,9 +155,8 @@ public class MqttService : IMqttService, IDisposable
 
             // Collect discovery topics from non-excluded strategies
             _excludedDeviceTypes = settings.MqttExcludedDeviceTypes?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>();
-            var strategies = scope.ServiceProvider.GetServices<IDeviceStrategy>();
             
-            var topics = strategies
+            var topics = _strategies
                 .Where(s => !_excludedDeviceTypes.Contains(s.SupportedType.ToString()))
                 .SelectMany(s => s.MqttDiscoveryTopics)
                 .Distinct()
@@ -171,11 +184,8 @@ public class MqttService : IMqttService, IDisposable
         {
             var topic = e.ApplicationMessage.Topic;
             var payload = e.ApplicationMessage.ConvertPayloadToString();
-
-            using var scope = _scopeFactory.CreateScope();
-            var strategies = scope.ServiceProvider.GetServices<IDeviceStrategy>();
             
-            foreach (var strategy in strategies)
+            foreach (var strategy in _strategies)
             {
                 // Skip excluded device types
                 if (_excludedDeviceTypes.Contains(strategy.SupportedType.ToString()))
@@ -191,10 +201,7 @@ public class MqttService : IMqttService, IDisposable
                 if (discovered != null && !string.IsNullOrEmpty(discovered.MacAddress))
                 {
                     // normalize mac address, don't trust the format from the stragety
-                    if (!string.IsNullOrEmpty(discovered.MacAddress))
-                    {
-                        discovered.MacAddress = NetworkUtils.NormalizeMac(discovered.MacAddress);    
-                    }
+                    discovered.MacAddress = NetworkUtils.NormalizeMac(discovered.MacAddress);
 
                     await HandleDiscoveredDevice(discovered);
                     break;
@@ -244,15 +251,23 @@ public class MqttService : IMqttService, IDisposable
         return true;
     }
 
+    // Cache of known devices: MacAddress -> IpAddress
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _knownDevices = new();
+
     private async Task HandleDiscoveredDevice(DiscoveredDevice discovered)
     {
+        // Optimization: Check cache first to avoid creating a scope and hitting the DB
+        // If we know this MAC, and the IP is the same, we can skip DB operations entirely.
+        if (_knownDevices.TryGetValue(discovered.MacAddress, out var knownIp) && knownIp == discovered.IpAddress)
+        {
+            return;
+        }
+
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<BackupContext>();
-            var strategies = scope.ServiceProvider.GetServices<IDeviceStrategy>();
             var settings = await context.Settings.FirstOrDefaultAsync();
-            var client = _httpClientFactory.CreateClient();
 
             if (settings?.MqttAutoAdd == true)
             {
@@ -260,7 +275,7 @@ public class MqttService : IMqttService, IDisposable
                 var foundDevice = await context.Devices.FirstOrDefaultAsync(d => d.MacAddress == discovered.MacAddress );
                 if (foundDevice == null)
                 {
-                    var strategy = strategies.FirstOrDefault(s => s.SupportedType == discovered.Type);
+                    var strategy = _strategies.FirstOrDefault(s => s.SupportedType == discovered.Type);
                     if (strategy == null)
                     {
                         _logger.LogWarning("No strategy found for device type {Type}", discovered.Type);
@@ -268,7 +283,7 @@ public class MqttService : IMqttService, IDisposable
                     }   
 
                     // probe the device to get all information
-                    var probedDevice = await strategy.ProbeAsync(discovered.IpAddress, client);     
+                    var probedDevice = await strategy.ProbeAsync(discovered.IpAddress, _httpClientFactory.CreateClient());     
                     if (probedDevice == null)
                     {
                         _logger.LogWarning("Failed to probe device {IpAddress}", discovered.IpAddress);
@@ -290,13 +305,20 @@ public class MqttService : IMqttService, IDisposable
                     context.Devices.Add(device);
                     // save changes
                     await context.SaveChangesAsync();
+                    
+                    // Update cache
+                    _knownDevices.AddOrUpdate(device.MacAddress, device.IpAddress, (k, v) => device.IpAddress);
+                    
                     _logger.LogInformation("Auto-added device via MQTT: {Name} {Type} ({IpAddress})", device.Name, device.Type, device.IpAddress);
                 }
                 else{
+                    // Update cache for existing device even if no changes, so we skip next time
+                    _knownDevices.AddOrUpdate(foundDevice.MacAddress, foundDevice.IpAddress, (k, v) => foundDevice.IpAddress);
+
                     // same mac, same type, different ip address        
                     if (foundDevice.Type == discovered.Type && foundDevice.IpAddress != discovered.IpAddress)
                     {
-                        var strategy = strategies.FirstOrDefault(s => s.SupportedType == discovered.Type);
+                        var strategy = _strategies.FirstOrDefault(s => s.SupportedType == discovered.Type);
                         if (strategy == null)
                         {
                             _logger.LogWarning("No strategy found for device type {Type}", discovered.Type);
@@ -304,7 +326,7 @@ public class MqttService : IMqttService, IDisposable
                         }   
 
                         // probe the device to get all information
-                        var probedDevice =  await strategy.ProbeAsync(discovered.IpAddress, client);     
+                        var probedDevice =  await strategy.ProbeAsync(discovered.IpAddress, _httpClientFactory.CreateClient());     
                         if (probedDevice == null)
                         {
                             _logger.LogWarning("Failed to probe device {IpAddress}", discovered.IpAddress);
@@ -316,6 +338,10 @@ public class MqttService : IMqttService, IDisposable
                         {                            
                             foundDevice.IpAddress = discovered.IpAddress;
                             await context.SaveChangesAsync();
+                            
+                            // Update cache
+                            _knownDevices[foundDevice.MacAddress] = foundDevice.IpAddress;
+
                             _logger.LogInformation("Updated device IP address via MQTT: {Name} ({IpAddress})", foundDevice.Name, foundDevice.IpAddress);
                         }
                     }

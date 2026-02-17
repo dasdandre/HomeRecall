@@ -136,7 +136,7 @@ public class TasmotaStrategy : IDeviceStrategy
                     // todo: handle IPV6
                     if ((info?.StatusNET?.IPAddress??"") != "0.0.0.0")
                     {                        
-                        discoveredDevice.IpAddress = info?.StatusNET?.IPAddress??;
+                        discoveredDevice.IpAddress = info?.StatusNET?.IPAddress;
                         discoveredDevice.Hostname = info?.StatusNET?.Hostname;
                         discoveredDevice.MacAddress = info?.StatusNET?.Mac;
                     }else if (info?.StatusNET?.Ethernet != null && (info?.StatusNET?.Ethernet?.IPAddress??"") != "0.0.0.0" )
