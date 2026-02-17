@@ -169,6 +169,13 @@ public class MqttService : IMqttService, IDisposable
             }
 
             await _mqttClient.StartAsync(options);
+
+            // Trigger initial discovery and start loop
+            _ = Task.Run(async () => {
+                await Task.Delay(2000); // Wait a bit for connection to stabilize
+                await PublishDiscoveryMessages();
+                await StartDiscoveryLoop();
+            });
         }
         catch (Exception ex)
         {
@@ -354,8 +361,44 @@ public class MqttService : IMqttService, IDisposable
         }
     }
 
+    private PeriodicTimer? _discoveryTimer;
+
+    private async Task StartDiscoveryLoop()
+    {
+        _discoveryTimer?.Dispose();
+        _discoveryTimer = new PeriodicTimer(TimeSpan.FromHours(1));
+
+        while (await _discoveryTimer.WaitForNextTickAsync())
+        {
+            await PublishDiscoveryMessages();
+        }
+    }
+
+    private async Task PublishDiscoveryMessages()
+    {
+        if (_mqttClient == null || !_mqttClient.IsConnected) return;
+
+        try
+        {
+            foreach (var strategy in _strategies)
+            {
+                var msg = strategy.DiscoveryMessage;
+                if (msg != null)
+                {
+                    await _mqttClient.InternalClient.PublishStringAsync(msg.Topic, msg.Payload);
+                    _logger.LogInformation("Published discovery message for {Type}: {Topic} {Payload}", strategy.SupportedType, msg.Topic, msg.Payload);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error publishing discovery messages");
+        }
+    }
+
     public void Dispose()
     {
+        _discoveryTimer?.Dispose();
         _mqttClient?.Dispose();
     }
 }

@@ -6,11 +6,11 @@ using HomeRecall.Persistence.Enums;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 
-public class ShellyGen2Strategy : IDeviceStrategy
+public class ShellyGen2Strategy : BaseDeviceStrategy
 {
-    public DeviceType SupportedType => DeviceType.ShellyGen2;
+    public override DeviceType SupportedType => DeviceType.ShellyGen2;
 
-    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    public override async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
         {
@@ -38,7 +38,7 @@ public class ShellyGen2Strategy : IDeviceStrategy
         return null;
     }
 
-    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
+    public override async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var data = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/rpc/Shelly.GetConfig");
         var files = new List<BackupFile> { new("config.json", data) };
@@ -113,10 +113,8 @@ public class ShellyGen2Strategy : IDeviceStrategy
 
         return new DeviceBackupResult(files, version);
     }
-
-    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload) => null;
-    public IEnumerable<string> MqttDiscoveryTopics => Enumerable.Empty<string>();
     
+    // JSON models
     private class ShellyDeviceInfo 
     { 
         [JsonPropertyName("ver")] public string? Ver { get; set; }

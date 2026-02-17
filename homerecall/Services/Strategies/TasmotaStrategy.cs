@@ -8,11 +8,11 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-public class TasmotaStrategy : IDeviceStrategy
+public class TasmotaStrategy : BaseDeviceStrategy
 {
-    public DeviceType SupportedType => DeviceType.Tasmota;
+    public override DeviceType SupportedType => DeviceType.Tasmota;
 
-    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    public override async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
         {
@@ -100,7 +100,7 @@ public class TasmotaStrategy : IDeviceStrategy
         return null;
     }
 
-    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
+    public override async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var data = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/dl");
         var files = new List<BackupFile> { new("Config.dmp", data) };
@@ -119,7 +119,7 @@ public class TasmotaStrategy : IDeviceStrategy
         return new DeviceBackupResult(files, version);
     }
 
-    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
+    public override DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
     {        
         if (topic.EndsWith("/STATUS5"))
         {
@@ -155,7 +155,10 @@ public class TasmotaStrategy : IDeviceStrategy
     }
 
 
-    public IEnumerable<string> MqttDiscoveryTopics => new[] { "stat/+/STATUS5" };
+    public override IEnumerable<string> MqttDiscoveryTopics => new[] { "stat/+/STATUS5" };
+    
+    // Send command to group topic "tasmotas" to request Status 5 (Network) from all devices
+    public override MqttDiscoveryMessage? DiscoveryMessage => new("cmnd/tasmotas/Status", "5");
 
     // JSON Models
     private class TasmotaInfo

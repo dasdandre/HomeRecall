@@ -7,11 +7,11 @@ using HomeRecall.Persistence.Enums;
 
 namespace HomeRecall.Services.Strategies;
 
-public class ShellyStrategy : IDeviceStrategy
+public class ShellyStrategy : BaseDeviceStrategy
 {
-    public DeviceType SupportedType => DeviceType.Shelly;
+    public override DeviceType SupportedType => DeviceType.Shelly;
 
-    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    public override async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
         {
@@ -60,7 +60,7 @@ public class ShellyStrategy : IDeviceStrategy
         return null;
     }
 
-    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
+    public override async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var data = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/settings");
         var files = new List<BackupFile> { new("settings.json", data) };
@@ -76,7 +76,7 @@ public class ShellyStrategy : IDeviceStrategy
         return new DeviceBackupResult(files, version);
     }
 
-    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
+    public override DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
     {
         // Shelly Gen 1 announces on shelly/+/announce
         if (topic.StartsWith("shelly/") && topic.EndsWith("/announce"))
@@ -101,7 +101,7 @@ public class ShellyStrategy : IDeviceStrategy
         return null;
     }
 
-    public IEnumerable<string> MqttDiscoveryTopics => new[] { "shelly/+/announce" };
+    public override IEnumerable<string> MqttDiscoveryTopics => new[] { "shelly/+/announce" };
 
     private class ShellyAnnounce
     {

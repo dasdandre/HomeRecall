@@ -5,11 +5,11 @@ using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
 using System.Net.Http.Json;
 
-public class OpenDtuStrategy : IDeviceStrategy
+public class OpenDtuStrategy : BaseDeviceStrategy
 {
-    public DeviceType SupportedType => DeviceType.OpenDtu;
+    public override DeviceType SupportedType => DeviceType.OpenDtu;
 
-    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    public override async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
         {
@@ -31,7 +31,7 @@ public class OpenDtuStrategy : IDeviceStrategy
         return null;
     }
 
-    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
+    public override async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var data = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/api/config");
         var files = new List<BackupFile> { new("config.json", data) };
@@ -46,9 +46,6 @@ public class OpenDtuStrategy : IDeviceStrategy
 
         return new DeviceBackupResult(files, version);
     }
-
-    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload) => null;
-    public IEnumerable<string> MqttDiscoveryTopics => Enumerable.Empty<string>();
     
     private class OpenDtuStatus 
     { 

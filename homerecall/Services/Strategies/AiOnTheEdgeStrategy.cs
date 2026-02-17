@@ -5,11 +5,11 @@ using HomeRecall.Services;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
 
-public class AiOnTheEdgeStrategy : IDeviceStrategy
+public class AiOnTheEdgeStrategy : BaseDeviceStrategy
 {
-    public DeviceType SupportedType => DeviceType.AiOnTheEdge;
+    public override DeviceType SupportedType => DeviceType.AiOnTheEdge;
 
-    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    public override async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
         {
@@ -62,7 +62,7 @@ public class AiOnTheEdgeStrategy : IDeviceStrategy
         return null;
     }
 
-    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
+    public override async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();
 
@@ -96,7 +96,4 @@ public class AiOnTheEdgeStrategy : IDeviceStrategy
 
         return new DeviceBackupResult(files, version);
     }
-
-    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload) => null;
-    public IEnumerable<string> MqttDiscoveryTopics => Enumerable.Empty<string>();
 }

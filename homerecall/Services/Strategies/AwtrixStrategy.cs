@@ -5,11 +5,26 @@ using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
 using System.Net.Http.Json;
 
-public class AwtrixStrategy : IDeviceStrategy
+public class AwtrixStrategy : BaseDeviceStrategy
 {
-    public DeviceType SupportedType => DeviceType.Awtrix;
+    public override DeviceType SupportedType => DeviceType.Awtrix;
 
-    public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
+    private class AwtrixStats
+    {
+        public string? version { get; set; }
+        public string? uid { get; set; }
+    }
+
+    private class AwtrixFileEntry
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string? Type { get; set; }
+    }
+
+    public override async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
         {
@@ -25,7 +40,7 @@ public class AwtrixStrategy : IDeviceStrategy
                      { 
                          IpAddress = ip, 
                          Type = DeviceType.Awtrix, 
-                         Name = stats?.uid ?? $"Awtrix-{ip.Split('.').Last()}",
+                         Name = stats?.uid != null ? $"Awtrix-{stats.uid}" : $"Awtrix-{ip.Split('.').Last()}",
                          
                          FirmwareVersion = stats?.version ?? string.Empty                          
                      };
@@ -36,7 +51,7 @@ public class AwtrixStrategy : IDeviceStrategy
         return null;
     }
 
-    public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
+    public override async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();
         await ScanDirectoryAsync(device.IpAddress, "/", files, httpClient);
@@ -64,9 +79,6 @@ public class AwtrixStrategy : IDeviceStrategy
         return new DeviceBackupResult(files, version);
     }
 
-    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload) => null;
-    public IEnumerable<string> MqttDiscoveryTopics => Enumerable.Empty<string>();
-
     private async Task ScanDirectoryAsync(string ip, string path, List<BackupFile> files, HttpClient httpClient)
     {
         try
@@ -80,7 +92,6 @@ public class AwtrixStrategy : IDeviceStrategy
                 {
                     if (entry.Type == "file")
                     {
-                        string downloadPath = $"{path}{entry.Name}";
                         try 
                         {
                             var fileUrl = $"http://{ip}{path}{entry.Name}";
@@ -105,18 +116,4 @@ public class AwtrixStrategy : IDeviceStrategy
         {
         }
     }
-
-    private class AwtrixFileEntry
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("name")]
-        public string? Name { get; set; }
-        
-        [System.Text.Json.Serialization.JsonPropertyName("type")]
-        public string? Type { get; set; }
-    }
-
-    private class AwtrixStats { 
-        public string? version { get; set; }
-        public string? uid { get; set; }
-     }
 }
