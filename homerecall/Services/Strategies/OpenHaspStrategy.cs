@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using HomeRecall.Services;
@@ -71,6 +72,39 @@ public class OpenHaspStrategy : IDeviceStrategy
         catch { }
 
         return new DeviceBackupResult(files, version);
+    }
+
+    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
+    {
+        // openHASP status/info
+        if (topic.EndsWith("/status/info"))
+        {
+            try
+            {
+                var info = JsonSerializer.Deserialize<OpenHaspMqttInfo>(payload);
+                if (info != null && !string.IsNullOrEmpty(info.Ip))
+                {
+                    return new DiscoveredDevice
+                    {
+                        IpAddress = info.Ip,
+                        Type = DeviceType.OpenHasp,
+                        Name = string.IsNullOrEmpty(info.Node) ? $"OpenHasp-{info.Ip.Split('.').Last()}" : info.Node,
+                        FirmwareVersion = info.Version ?? ""
+                    };
+                }
+            }
+            catch { }
+        }
+        return null;
+    }
+
+    public IEnumerable<string> MqttDiscoveryTopics => new[] { "+/status/info" };
+
+    private class OpenHaspMqttInfo
+    {
+        [JsonPropertyName("node")] public string? Node { get; set; }
+        [JsonPropertyName("ip")] public string? Ip { get; set; }
+        [JsonPropertyName("version")] public string? Version { get; set; }
     }
 
     private class OpenHaspFile

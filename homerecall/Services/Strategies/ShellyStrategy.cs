@@ -1,9 +1,11 @@
-namespace HomeRecall.Services.Strategies;
-
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Net.Http.Json;
 using HomeRecall.Services;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
-using System.Net.Http.Json;
+
+namespace HomeRecall.Services.Strategies;
 
 public class ShellyStrategy : IDeviceStrategy
 {
@@ -26,8 +28,6 @@ public class ShellyStrategy : IDeviceStrategy
                                   !string.IsNullOrWhiteSpace(settings.Device?.Hostname) ? settings.Device.Hostname : 
                                   $"Shelly-{ip.Split('.').Last()}";
                                   
-                    // Simple check if it's really Gen1 (Gen2 has different structure)
-                    // If we are here, it worked.
                     return new DiscoveredDevice 
                     { 
                         IpAddress = ip, 
@@ -35,7 +35,7 @@ public class ShellyStrategy : IDeviceStrategy
                         Name = name, 
                         Hostname = settings.Device?.Hostname,
                         MacAddress = settings.Device?.Mac,
-                        FirmwareVersion = "Gen1" // Firmware version is in /status or /shelly usually
+                        FirmwareVersion = "Gen1"
                     };
                 }
             }
@@ -68,13 +68,46 @@ public class ShellyStrategy : IDeviceStrategy
         string version = string.Empty;
         try
         {
-            // Gen1 FW version is in /shelly
             var info = await httpClient.GetFromJsonAsync<ShellyInfo>($"http://{device.IpAddress}/shelly");
             if (info?.Fw != null) version = info.Fw;
         }
         catch { }
 
         return new DeviceBackupResult(files, version);
+    }
+
+    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
+    {
+        // Shelly Gen 1 announces on shelly/+/announce
+        if (topic.StartsWith("shelly/") && topic.EndsWith("/announce"))
+        {
+            try
+            {
+                var announce = JsonSerializer.Deserialize<ShellyAnnounce>(payload);
+                if (announce != null && !string.IsNullOrEmpty(announce.Ip))
+                {
+                    return new DiscoveredDevice
+                    {
+                        IpAddress = announce.Ip,
+                        Type = DeviceType.Shelly,
+                        Name = $"Shelly-{announce.Ip.Split('.').Last()}",
+                        MacAddress = announce.Mac,
+                        FirmwareVersion = "Gen1"
+                    };
+                }
+            }
+            catch { }
+        }
+        return null;
+    }
+
+    public IEnumerable<string> MqttDiscoveryTopics => new[] { "shelly/+/announce" };
+
+    private class ShellyAnnounce
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("mac")] public string? Mac { get; set; }
+        [JsonPropertyName("ip")] public string? Ip { get; set; }
     }
 
     private class ShellySettings 

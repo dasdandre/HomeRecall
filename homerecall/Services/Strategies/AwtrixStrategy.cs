@@ -3,6 +3,7 @@ namespace HomeRecall.Services.Strategies;
 using HomeRecall.Services;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
+using System.Net.Http.Json;
 
 public class AwtrixStrategy : IDeviceStrategy
 {
@@ -63,6 +64,9 @@ public class AwtrixStrategy : IDeviceStrategy
         return new DeviceBackupResult(files, version);
     }
 
+    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload) => null;
+    public IEnumerable<string> MqttDiscoveryTopics => Enumerable.Empty<string>();
+
     private async Task ScanDirectoryAsync(string ip, string path, List<BackupFile> files, HttpClient httpClient)
     {
         try
@@ -77,26 +81,6 @@ public class AwtrixStrategy : IDeviceStrategy
                     if (entry.Type == "file")
                     {
                         string downloadPath = $"{path}{entry.Name}";
-                        // JS logic uses: trimLeadingSlash(joinPaths(dir, filename))
-                        // The download endpoint seems to be just the path on the device based on JS: fetch(`${dir}${filename}`)
-                        // Wait, the JS says: const source_file_url = `${dir}${filename}`;
-                        // And fetch(source_file_url) which is relative to the root of the web server.
-                        // So http://ip/config.json or http://ip/icons/icon.gif
-                        
-                        // BUT: The fallback used /edit?download=/config.json previously.
-                        // Let's look at JS again: 
-                        // const source_file_url = `${dir}${filename}`; -> /config.json
-                        // const fileResponse = await fetch(source_file_url); -> GET http://ip/config.json
-                        
-                        // It seems AWTRIX serves files directly from root if they are in root?
-                        // Or maybe via /edit?download=... 
-                        
-                        // The JS snippet uses `fetch(source_file_url)` where source_file_url is constructed as /path/to/file.
-                        // Example: dir='/', filename='config.json' -> '/config.json'
-                        // Example: dir='/icons/', filename='x.gif' -> '/icons/x.gif'
-                        
-                        // So we should try to download from http://{ip}{path}{entry.Name}
-                        
                         try 
                         {
                             var fileUrl = $"http://{ip}{path}{entry.Name}";
@@ -108,8 +92,6 @@ public class AwtrixStrategy : IDeviceStrategy
                         }
                         catch 
                         {
-                            // Try fallback via edit download if direct access fails? 
-                            // JS doesn't do that, so we stick to direct access for now.
                         }
                     }
                     else if (entry.Type == "dir")
@@ -121,7 +103,6 @@ public class AwtrixStrategy : IDeviceStrategy
         }
         catch 
         {
-            // Directory listing failed or empty
         }
     }
 

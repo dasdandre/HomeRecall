@@ -21,4 +21,6 @@ public interface IDeviceStrategy
     DeviceType SupportedType { get; }
     Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient);
     Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient);
+    DiscoveredDevice? DiscoverFromMqtt(string topic, string payload);
+    IEnumerable<string> MqttDiscoveryTopics { get; }
 }

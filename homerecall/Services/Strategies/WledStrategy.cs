@@ -1,9 +1,9 @@
-namespace HomeRecall.Services.Strategies;
-
-using HomeRecall.Services;
+using System.Net.Http.Json;
+using System.Text.Json;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
-using System.Net.Http.Json;
+
+namespace HomeRecall.Services.Strategies;
 
 public class WledStrategy : IDeviceStrategy
 {
@@ -18,16 +18,16 @@ public class WledStrategy : IDeviceStrategy
             {
                 string name = !string.IsNullOrWhiteSpace(info.Name) ? info.Name : $"WLED-{ip.Split('.').Last()}";
                 
-                return new DiscoveredDevice 
-                { 
-                    IpAddress = ip, 
-                    Type = DeviceType.Wled, 
-                    Name = name, 
-                    MacAddress = info.Mac,
-                    FirmwareVersion = info.Ver 
-                };
+                    return new DiscoveredDevice
+                    {
+                        IpAddress = ip,
+                        Type = DeviceType.Wled,
+                        Name = name, 
+                        MacAddress = info.Mac,
+                        FirmwareVersion = info.Ver 
+                    };
+                }
             }
-        }
         catch {}
         return null;
     }
@@ -56,6 +56,19 @@ public class WledStrategy : IDeviceStrategy
 
         return new DeviceBackupResult(files, version);
     }
+
+    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
+    {
+        // WLED version info on wled/+/v
+        if (topic.StartsWith("wled/") && topic.EndsWith("/v"))
+        {
+            // Note: WLED default payloads don't always include IP,
+            // might need further logic or matching.
+        }
+        return null;
+    }
+
+    public IEnumerable<string> MqttDiscoveryTopics => new[] { "wled/+/v" };
 
     private class WledInfo 
     { 

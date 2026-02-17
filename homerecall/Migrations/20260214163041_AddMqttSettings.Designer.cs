@@ -3,6 +3,7 @@ using System;
 using HomeRecall.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HomeRecall.Migrations
 {
     [DbContext(typeof(BackupContext))]
-    partial class BackupContextModelSnapshot : ModelSnapshot
+    [Migration("20260214163041_AddMqttSettings")]
+    partial class AddMqttSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
@@ -53,10 +56,6 @@ namespace HomeRecall.Migrations
                     b.Property<bool>("MqttEnabled")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("MqttExcludedDeviceTypes")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("MqttHost")
                         .HasColumnType("TEXT");
 
@@ -91,7 +90,6 @@ namespace HomeRecall.Migrations
                             MaxDaysToKeep = 30,
                             MqttAutoAdd = false,
                             MqttEnabled = false,
-                            MqttExcludedDeviceTypes = "",
                             MqttPort = 1883,
                             RetentionMode = 0,
                             UseRelativeTime = true

@@ -27,4 +27,13 @@ public class AppSettings
     public string? LastScanIpStart { get; set; }
     public int LastScanIpEndSuffix { get; set; } = 254;
     public string? LastScanDeviceTypes { get; set; } // Comma separated enum names
+
+    // MQTT Settings
+    public bool MqttEnabled { get; set; } = false;
+    public string? MqttHost { get; set; }
+    public int MqttPort { get; set; } = 1883;
+    public string? MqttUsername { get; set; }
+    public string? MqttPasswordEncrypted { get; set; }
+    public bool MqttAutoAdd { get; set; } = false;
+    public string MqttExcludedDeviceTypes { get; set; } = string.Empty;
 }

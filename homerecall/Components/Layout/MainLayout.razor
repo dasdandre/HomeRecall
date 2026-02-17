@@ -1,5 +1,4 @@
 @inherits LayoutComponentBase
-@implements IDisposable
 
 <MudThemeProvider @ref="_mudThemeProvider" @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
 <MudPopoverProvider />
@@ -13,7 +12,7 @@
     <MudMainContent>
         <MudTabs Elevation="0" SliderColor="Color.Primary" ActivePanelIndex="@_activeTab" ActivePanelIndexChanged="OnTabChanged" Centered="true" Class="ha-appbar-tabs">
             <MudTabPanel Icon="@Icons.Material.Filled.DevicesOther" ToolTip="@L["Nav_Devices"]" Text="@L["Nav_Devices"]"></MudTabPanel> 
-            <MudTabPanel Icon="@Icons.Material.Filled.Settings" ToolTip="@L["Nav_Settings"]" Text="@L["Nav_Settings"]"></MudTabPanel>
+            <MudTabPanel Icon="@Icons.Material.Filled.Settings" ToolTip="@L["Nav_Settings"]" Text="@L["Nav_Settings"]" BadgeDot="@(MqttService.Status == MqttConnectionStatus.Error)" BadgeColor="Color.Error"></MudTabPanel>
         </MudTabs>
         <MudContainer MaxWidth="MaxWidth.False" Class="mt-4 mb-16"> <!-- mb-16 for bottom nav space -->
             @Body

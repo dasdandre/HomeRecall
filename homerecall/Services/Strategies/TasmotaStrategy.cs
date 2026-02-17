@@ -5,6 +5,8 @@ using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
 
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 public class TasmotaStrategy : IDeviceStrategy
 {
@@ -117,7 +119,53 @@ public class TasmotaStrategy : IDeviceStrategy
         return new DeviceBackupResult(files, version);
     }
 
+    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
+    {        
+        if (topic.EndsWith("/STATUS5"))
+        {
+            try
+            {
+                var info = JsonSerializer.Deserialize<MqttStatus5>(payload);
+                if (info != null && info.StatusNET != null)
+                {
+                    var discoveredDevice = new DiscoveredDevice{ Type = DeviceType.Tasmota };
+
+                    // try to get IP address from StatusNET WiFi interface
+                    // if not found, try to get IP address from StatusNET Ethernet interface    
+                    // todo: handle multiple interfaces
+                    // todo: handle IPV6
+                    if ((info?.StatusNET?.IPAddress??"") != "0.0.0.0")
+                    {                        
+                        discoveredDevice.IpAddress = info?.StatusNET?.IPAddress??;
+                        discoveredDevice.Hostname = info?.StatusNET?.Hostname;
+                        discoveredDevice.MacAddress = info?.StatusNET?.Mac;
+                    }else if (info?.StatusNET?.Ethernet != null && (info?.StatusNET?.Ethernet?.IPAddress??"") != "0.0.0.0" )
+                    {
+                        discoveredDevice.IpAddress = info?.StatusNET?.Ethernet?.IPAddress;
+                        discoveredDevice.Hostname = info?.StatusNET?.Ethernet?.Hostname;                        
+                        discoveredDevice.MacAddress = info?.StatusNET?.Ethernet?.Mac;
+                    }     
+
+                    return discoveredDevice;
+                }
+            }
+            catch { }
+        }
+        return null;
+    }
+
+
+    public IEnumerable<string> MqttDiscoveryTopics => new[] { "stat/+/STATUS5" };
+
     // JSON Models
+    private class TasmotaInfo
+    {
+        [JsonPropertyName("IPAddress")] public string? IpAddress { get; set; }
+        [JsonPropertyName("Hostname")] public string? Hostname { get; set; }
+        [JsonPropertyName("Mac")] public string? MacAddress { get; set; }
+        [JsonPropertyName("Version")] public string? Version { get; set; }
+    }
+
     private class TasmotaStatus2 { public StatusFwr? StatusFWR { get; set; } }
     private class StatusFwr { public string? Version { get; set; } }
 
@@ -135,10 +183,29 @@ public class TasmotaStrategy : IDeviceStrategy
 
         public string? Topic { get; set; }
     }
-    private class StatusNet { public string? Hostname { get; set; } public string? Mac { get; set; } }
+
+    private class StatusEthernet
+    { 
+        public string? Hostname { get; set; } 
+        public string? Mac { get; set; } 
+        public string? IPAddress { get; set; } 
+    }
+
+    private class StatusNet
+    { 
+        public string? Hostname { get; set; } 
+        public string? Mac { get; set; } 
+        public string? IPAddress { get; set; } 
+        public StatusEthernet? Ethernet { get; set; }
+    }   
 
     private class TasmotaModuleResponse
     {
         public Dictionary<string, string>? Module { get; set; }
+    }
+
+    private class MqttStatus5
+    {
+        public StatusNet? StatusNET { get; set; }
     }
 }

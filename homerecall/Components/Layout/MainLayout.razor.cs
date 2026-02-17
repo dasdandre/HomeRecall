@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.Extensions.Localization;
 using Microsoft.JSInterop;
 using MudBlazor;
+using HomeRecall.Services;
 
 namespace HomeRecall.Components.Layout;
 
@@ -11,6 +12,7 @@ public partial class MainLayout : LayoutComponentBase, IDisposable
     [Inject] private IStringLocalizer<SharedResource> L { get; set; } = null!;
     [Inject] private IJSRuntime JS { get; set; } = null!;
     [Inject] private NavigationManager NavigationManager { get; set; } = null!;
+    [Inject] private IMqttService MqttService { get; set; } = null!;
 
     private MudTheme _theme = new MudTheme();
     private bool _isDarkMode = false;
@@ -26,6 +28,8 @@ public partial class MainLayout : LayoutComponentBase, IDisposable
         _theme.PaletteDark = HaThemeColors.GetHaPaletteDark();
 
         NavigationManager.LocationChanged += OnLocationChanged;
+        MqttService.StatusChanged += OnStatusChanged;
+        
         UpdateActiveTab(NavigationManager.Uri);
         await Task.CompletedTask;
     }
@@ -100,6 +104,11 @@ public partial class MainLayout : LayoutComponentBase, IDisposable
         StateHasChanged();
     }
 
+    private void OnStatusChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
     private void UpdateActiveTab(string url)
     {
         if (url.Contains("/settings", StringComparison.OrdinalIgnoreCase))
@@ -128,5 +137,6 @@ public partial class MainLayout : LayoutComponentBase, IDisposable
     {
         _objRef?.Dispose();
         NavigationManager.LocationChanged -= OnLocationChanged;
+        MqttService.StatusChanged -= OnStatusChanged;
     }
 }

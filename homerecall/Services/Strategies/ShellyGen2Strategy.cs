@@ -113,14 +113,17 @@ public class ShellyGen2Strategy : IDeviceStrategy
 
         return new DeviceBackupResult(files, version);
     }
+
+    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload) => null;
+    public IEnumerable<string> MqttDiscoveryTopics => Enumerable.Empty<string>();
     
     private class ShellyDeviceInfo 
     { 
         [JsonPropertyName("ver")] public string? Ver { get; set; }
         [JsonPropertyName("fw_id")] public string? FwId { get; set; }
-        [JsonPropertyName("name")] public string? Name { get; set; } // User name
-        [JsonPropertyName("id")] public string? Id { get; set; } // Device ID
-        [JsonPropertyName("app")] public string? App { get; set; } // Model
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("app")] public string? App { get; set; }
         [JsonPropertyName("mac")] public string? Mac { get; set; }
         [JsonPropertyName("gen")] public int? Gen { get; set; }
     }

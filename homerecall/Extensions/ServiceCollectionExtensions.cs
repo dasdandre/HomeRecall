@@ -64,6 +64,12 @@ public static class ServiceCollectionExtensions
         services.AddMudServices();
         services.AddHttpContextAccessor(); // Required for some UI components or accessing HttpContext
 
+        // Data Protection for secure storage
+        services.AddDataProtection();
+
+        // MQTT Service (Singleton to maintain connection)
+        services.AddSingleton<IMqttService, MqttService>();
+
         // Add Razor Components with Interactive Server Mode support
         services.AddRazorComponents().AddInteractiveServerComponents();
     }

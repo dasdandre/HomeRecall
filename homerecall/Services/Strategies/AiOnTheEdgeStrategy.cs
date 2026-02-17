@@ -96,4 +96,7 @@ public class AiOnTheEdgeStrategy : IDeviceStrategy
 
         return new DeviceBackupResult(files, version);
     }
+
+    public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload) => null;
+    public IEnumerable<string> MqttDiscoveryTopics => Enumerable.Empty<string>();
 }

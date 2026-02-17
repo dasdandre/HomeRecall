@@ -333,4 +333,49 @@
   <data name="AddDevice_InvalidIp" xml:space="preserve">
     <value>Invalid IP Address format.</value>
   </data>
+  <data name="Settings_MQTT_Title" xml:space="preserve">
+    <value>MQTT Configuration</value>
+  </data>
+  <data name="Settings_MQTT_Enabled" xml:space="preserve">
+    <value>Enable MQTT Autodiscover</value>
+  </data>
+  <data name="Settings_MQTT_BrokerHost" xml:space="preserve">
+    <value>Broker Host</value>
+  </data>
+  <data name="Settings_MQTT_BrokerHost_Helper" xml:space="preserve">
+    <value>Supports ws:// and wss:// URIs</value>
+  </data>
+  <data name="Settings_MQTT_BrokerPort" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="Settings_MQTT_Username" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="Settings_MQTT_Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Settings_MQTT_AutoAdd" xml:space="preserve">
+    <value>Auto-Add Discovered Devices</value>
+  </data>
+  <data name="Settings_MQTT_AutoAdd_Desc" xml:space="preserve">
+    <value>If enabled, newly discovered devices will be added to your device list automatically.</value>
+  </data>
+  <data name="Settings_MQTT_Status_Connected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="Settings_MQTT_Status_Connecting" xml:space="preserve">
+    <value>Connecting</value>
+  </data>
+  <data name="Settings_MQTT_Status_Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="Settings_MQTT_Status_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Settings_MQTT_Status_Disconnected" xml:space="preserve">
+    <value>Disconnected</value>
+  </data>
+  <data name="Settings_MQTT_DiscoveryFilter" xml:space="preserve">
+    <value>MQTT Discovery Filter</value>
+  </data>
 </root>

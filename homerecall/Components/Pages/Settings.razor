@@ -67,6 +67,71 @@
         
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="SaveSettings">@L["Common_Save"]</MudButton>
     </MudPaper>
+
+    <MudPaper Class="pa-4 mt-4">
+        <div class="d-flex align-center mb-4">
+            <MudText Typo="Typo.h6">@L["Settings_MQTT_Title"]</MudText>
+            <MudSpacer />
+            <MudChip T="string" Color="@(MqttService.Status switch { MqttConnectionStatus.Connected => Color.Success, MqttConnectionStatus.Connecting => Color.Warning, MqttConnectionStatus.Disabled => Color.Default, _ => Color.Error })" Size="Size.Small">
+                @(MqttService.Status switch { 
+                    MqttConnectionStatus.Connected => L["Settings_MQTT_Status_Connected"],
+                    MqttConnectionStatus.Connecting => L["Settings_MQTT_Status_Connecting"],
+                    MqttConnectionStatus.Disabled => L["Settings_MQTT_Status_Disabled"],
+                    MqttConnectionStatus.Error => L["Settings_MQTT_Status_Error"],
+                    _ => L["Settings_MQTT_Status_Disconnected"]
+                })
+            </MudChip>
+        </div>
+
+        @if (MqttService.Status == MqttConnectionStatus.Error && !string.IsNullOrEmpty(MqttService.LastErrorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@MqttService.LastErrorMessage</MudAlert>
+        }
+
+        <MudSwitch @bind-Value="_settings.MqttEnabled" Color="Color.Primary" Label="@L["Settings_MQTT_Enabled"]" />
+
+        <MudCollapse Expanded="_settings.MqttEnabled">
+            <MudGrid Class="mt-2">
+                <MudItem xs="12" sm="8">
+                    <MudTextField @bind-Value="_settings.MqttHost" Label="@L["Settings_MQTT_BrokerHost"]" Placeholder="e.g. 192.168.1.50" HelperText="@L["Settings_MQTT_BrokerHost_Helper"]" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField @bind-Value="_settings.MqttPort" Label="@L["Settings_MQTT_BrokerPort"]" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_settings.MqttUsername" Label="@L["Settings_MQTT_Username"]" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_mqttPassword" Label="@L["Settings_MQTT_Password"]" InputType="InputType.Password" />
+                </MudItem>
+                <MudItem xs="12">
+                     <MudSwitch @bind-Value="_settings.MqttAutoAdd" Color="Color.Primary" Label="@L["Settings_MQTT_AutoAdd"]" />
+                     <MudText Typo="Typo.caption" Class="ml-2">@L["Settings_MQTT_AutoAdd_Desc"]</MudText>
+                </MudItem>
+
+                @if (_mqttCapableStrategies.Any())
+                {
+                    <MudItem xs="12" Class="mt-2">
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">@L["Settings_MQTT_DiscoveryFilter"]</MudText>
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var strategy in _mqttCapableStrategies)
+                            {
+                                var typeStr = strategy.SupportedType.ToString();
+                                var isExcluded = _excludedMqttTypes.Contains(typeStr);
+                                <MudChip T="string"
+                                         Text="@typeStr" 
+                                         Color="@(isExcluded ? Color.Error : Color.Default)"
+                                         Variant="@(isExcluded ? Variant.Filled : Variant.Outlined)"
+                                         OnClick="@(() => ToggleMqttExclusion(strategy.SupportedType))" />
+                            }
+                        </div>
+                    </MudItem>
+                }
+            </MudGrid>
+        </MudCollapse>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="SaveSettings">@L["Common_Save"]</MudButton>
+    </MudPaper>
 }
 
 <MudText Class="mt-4">Current Backup Path: @(Environment.GetEnvironmentVariable("backup_path") ?? Path.Combine(Directory.GetCurrentDirectory(), "backups"))</MudText>
