@@ -8,7 +8,17 @@ public class DiscoveredDevice
     public string IpAddress { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Hostname { get; set; }
-    public string? MacAddress { get; set; }
+
+    private string? _macAddress;
+    public string? MacAddress
+    {
+
+        get => _macAddress;
+
+        set => _macAddress = HomeRecall.Utilities.NetworkUtils.NormalizeMac(value);
+
+    }
+
     public string? HardwareModel { get; set; }
     public DeviceType Type { get; set; }
     public string FirmwareVersion { get; set; } = string.Empty;

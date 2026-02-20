@@ -150,13 +150,13 @@ public class TasmotaStrategy : IMqttDeviceStrategy
                     if ((info?.StatusNET?.IPAddress ?? "") != "0.0.0.0")
                     {
 
-                        discoveredDevice.IpAddress = info?.StatusNET?.IPAddress;
+                        discoveredDevice.IpAddress = info?.StatusNET?.IPAddress ?? "";
                         discoveredDevice.Hostname = info?.StatusNET?.Hostname;
                         discoveredDevice.MacAddress = info?.StatusNET?.Mac;
                     }
                     else if (info?.StatusNET?.Ethernet != null && (info?.StatusNET?.Ethernet?.IPAddress ?? "") != "0.0.0.0")
                     {
-                        discoveredDevice.IpAddress = info?.StatusNET?.Ethernet?.IPAddress;
+                        discoveredDevice.IpAddress = info?.StatusNET?.Ethernet?.IPAddress ?? "";
                         discoveredDevice.Hostname = info?.StatusNET?.Ethernet?.Hostname;
 
                         discoveredDevice.MacAddress = info?.StatusNET?.Ethernet?.Mac;

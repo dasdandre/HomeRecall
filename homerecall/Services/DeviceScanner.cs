@@ -1,9 +1,8 @@
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
-using HomeRecall.Services.Strategies;
-using System.Linq;
-
 using HomeRecall.Persistence.Enums;
+using HomeRecall.Services.Strategies;
 using HomeRecall.Utilities;
 
 namespace HomeRecall.Services;
@@ -15,7 +14,8 @@ public class DeviceScanner : IDeviceScanner
     private readonly IEnumerable<IDeviceStrategy> _strategies;
 
     public DeviceScanner(
-        IHttpClientFactory httpClientFactory, 
+        IHttpClientFactory httpClientFactory,
+
         ILogger<DeviceScanner> logger,
         IEnumerable<IDeviceStrategy> strategies)
     {
@@ -39,16 +39,20 @@ public class DeviceScanner : IDeviceScanner
         var foundDevices = new System.Collections.Concurrent.ConcurrentBag<DiscoveredDevice>();
 
         // Parallelism
-        var options = new ParallelOptions 
-        { 
-            MaxDegreeOfParallelism = 20, 
-            CancellationToken = cancellationToken 
+        var options = new ParallelOptions
+        {
+
+            MaxDegreeOfParallelism = 20,
+
+            CancellationToken = cancellationToken
+
         };
 
         int processedCount = 0;
         // Use total = all ips to avoid progress > 100% when skipping known IPs
         int total = ipsToScan.Count;
-        
+
+
         try
         {
             await Parallel.ForEachAsync(ipsToScan, options, async (ip, token) =>
@@ -56,7 +60,8 @@ public class DeviceScanner : IDeviceScanner
                 // For each IP, check requested strategies
                 using var client = CreateClient();
                 DiscoveredDevice? foundDevice = null;
-                
+
+
                 foreach (var strategy in _strategies)
                 {
                     if (token.IsCancellationRequested) break;
@@ -66,7 +71,6 @@ public class DeviceScanner : IDeviceScanner
                         var device = await strategy.ProbeAsync(ip, client);
                         if (device != null)
                         {
-                            device.MacAddress = NetworkUtils.NormalizeMac(device.MacAddress);                        
                             _logger.LogInformation("Found device {Type} at {Ip} ({Name})", device.Type, device.IpAddress, device.Name);
                             foundDevices.Add(device);
                             foundDevice = device;
@@ -74,8 +78,9 @@ public class DeviceScanner : IDeviceScanner
                         }
                     }
                 }
-                
+
                 // Report Progress
+
                 int current = Interlocked.Increment(ref processedCount);
                 if (progress != null && total > 0)
                 {
@@ -106,10 +111,11 @@ public class DeviceScanner : IDeviceScanner
     private List<string> GenerateIpsFromRange(string start, string end)
     {
         var ips = new List<string>();
-        
+
         // We assume they are in same subnet for simplicity logic here, or just iterate.
         // Actually, converting to uint/long allows any range.
-        
+
+
         if (System.Net.IPAddress.TryParse(start, out var ipStart) && System.Net.IPAddress.TryParse(end, out var ipEnd))
         {
             byte[] startBytes = ipStart.GetAddressBytes();
@@ -139,7 +145,8 @@ public class DeviceScanner : IDeviceScanner
                 ips.Add(new System.Net.IPAddress(bytes).ToString());
             }
         }
-        
+
+
         return ips;
     }
 }
