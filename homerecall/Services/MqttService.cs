@@ -267,8 +267,9 @@ public class MqttService : IMqttService, IDisposable
     // Cache of known devices: MacAddress -> IpAddress
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _knownDevices = new();
 
-    // Locks for processing devices by MacAddress
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> _processingLocks = new();
+    // Set of devices currently being processed (MacAddress)
+    // Used to drop duplicate discovery messages while one is already being handled.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _processingDevices = new();
 
     private async Task HandleDiscoveredDevice(DiscoveredDevice discovered)
     {
@@ -279,15 +280,16 @@ public class MqttService : IMqttService, IDisposable
             return;
         }
 
-        // Get or add a lock for this specific MAC address
-        var deviceLock = _processingLocks.GetOrAdd(discovered.MacAddress, _ => new SemaphoreSlim(1, 1));
-
-        // Wait for the lock
-        await deviceLock.WaitAsync();
+        // Try to add this MAC to the processing set. If checking fails (already there),
+        // it means another thread is already processing this device. Drop the message.
+        if (!_processingDevices.TryAdd(discovered.MacAddress, 0))
+        {
+            return;
+        }
 
         try
         {
-            // Double-check: Check cache again after acquiring lock in case another thread processed it
+            // Double-check: Check cache again after acquiring lock case another thread processed it
             if (_knownDevices.TryGetValue(discovered.MacAddress, out knownIp) && knownIp == discovered.IpAddress)
             {
                 return;
@@ -318,26 +320,53 @@ public class MqttService : IMqttService, IDisposable
                         return;
                     }
 
-                    // create new device
-                    var device = new Device
+                    // create new device or update existing if probed MAC matches an existing device
+                    var probedMac = NetworkUtils.NormalizeMac(probedDevice.MacAddress);
+                    var existingDevice = await context.Devices.FirstOrDefaultAsync(d => d.MacAddress == probedMac);
+
+                    if (existingDevice != null)
                     {
-                        Name = probedDevice.Name,
-                        IpAddress = probedDevice.IpAddress,
-                        Type = probedDevice.Type,
-                        MacAddress = probedDevice.MacAddress,
-                        HardwareModel = probedDevice.HardwareModel,
-                        CurrentFirmwareVersion = probedDevice.FirmwareVersion
-                    };
+                        // Device exists with the probed MAC, but was not found by discovered MAC
+                        // This means discovered.MacAddress != probedMac
+                        // We should update the existing device and ensure the cache prevents future lookups
+                        existingDevice.IpAddress = probedDevice.IpAddress;
+                        existingDevice.Name = probedDevice.Name;
+                        existingDevice.CurrentFirmwareVersion = probedDevice.FirmwareVersion;
 
-                    // add device to context
-                    context.Devices.Add(device);
-                    // save changes
-                    await context.SaveChangesAsync();
+                        await context.SaveChangesAsync();
 
-                    // Update cache
-                    _knownDevices.AddOrUpdate(device.MacAddress, device.IpAddress, (k, v) => device.IpAddress);
+                        // Update cache for the REAL mac
+                        _knownDevices.AddOrUpdate(existingDevice.MacAddress, existingDevice.IpAddress, (k, v) => existingDevice.IpAddress);
+                        _logger.LogInformation("Updated existing device by probed MAC: {Name} {Mac} ({IpAddress})", existingDevice.Name, existingDevice.MacAddress, existingDevice.IpAddress);
+                    }
+                    else
+                    {
+                        var device = new Device
+                        {
+                            Name = probedDevice.Name,
+                            IpAddress = probedDevice.IpAddress,
+                            Type = probedDevice.Type,
+                            MacAddress = probedMac,
+                            HardwareModel = probedDevice.HardwareModel,
+                            CurrentFirmwareVersion = probedDevice.FirmwareVersion
+                        };
 
-                    _logger.LogInformation("Auto-added device via MQTT: {Name} {Type} ({IpAddress})", device.Name, device.Type, device.IpAddress);
+                        // add device to context
+                        context.Devices.Add(device);
+                        // save changes
+                        await context.SaveChangesAsync();
+
+                        // Update cache
+                        _knownDevices.AddOrUpdate(device.MacAddress, device.IpAddress, (k, v) => device.IpAddress);
+
+                        _logger.LogInformation("Auto-added device via MQTT: {Name} {Type} ({IpAddress})", device.Name, device.Type, device.IpAddress);
+                    }
+
+                    // Also update cache for the DISCOVERED mac address to avoid re-probing
+                    if (discovered.MacAddress != probedMac)
+                    {
+                        _knownDevices.AddOrUpdate(discovered.MacAddress, probedDevice.IpAddress, (k, v) => probedDevice.IpAddress);
+                    }
                 }
                 else
                 {
@@ -383,7 +412,7 @@ public class MqttService : IMqttService, IDisposable
         }
         finally
         {
-            deviceLock.Release();
+            _processingDevices.TryRemove(discovered.MacAddress, out _);
         }
     }
 

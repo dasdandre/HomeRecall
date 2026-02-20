@@ -1,12 +1,11 @@
 namespace HomeRecall.Services.Strategies;
 
-using HomeRecall.Services;
-using HomeRecall.Persistence.Entities;
-using HomeRecall.Persistence.Enums;
-
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using HomeRecall.Persistence.Entities;
+using HomeRecall.Persistence.Enums;
+using HomeRecall.Services;
 
 public class TasmotaStrategy : IMqttDeviceStrategy
 {
@@ -56,8 +55,21 @@ public class TasmotaStrategy : IMqttDeviceStrategy
                         name = candidateNames.FirstOrDefault(n => !IsDefault(n)) ?? defaultName;
 
                         // read hostname and mac if available
-                        hostname= status?.StatusNET?.Hostname ?? status?.Status?.Hostname?? "";
+                        hostname = status?.StatusNET?.Hostname ?? status?.Status?.Hostname ?? "";
+
+                        // Try to get MAC from StatusNET (Wifi) first
+
                         mac = status?.StatusNET?.Mac ?? "";
+
+                        // If Wifi MAC is missing or invalid, try Ethernet
+                        if (string.IsNullOrEmpty(mac) || (status?.StatusNET?.IPAddress == "0.0.0.0" && status?.StatusNET?.Ethernet != null))
+                        {
+                            mac = status?.StatusNET?.Ethernet?.Mac ?? mac;
+                            if (string.IsNullOrEmpty(hostname))
+                            {
+                                hostname = status?.StatusNET?.Ethernet?.Hostname ?? "";
+                            }
+                        }
                     }
                     catch
                     { }
@@ -120,7 +132,8 @@ public class TasmotaStrategy : IMqttDeviceStrategy
     }
 
     public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
-    {        
+    {
+
         if (topic.EndsWith("/STATUS5"))
         {
             try
@@ -128,23 +141,27 @@ public class TasmotaStrategy : IMqttDeviceStrategy
                 var info = JsonSerializer.Deserialize<MqttStatus5>(payload);
                 if (info != null && info.StatusNET != null)
                 {
-                    var discoveredDevice = new DiscoveredDevice{ Type = DeviceType.Tasmota };
+                    var discoveredDevice = new DiscoveredDevice { Type = DeviceType.Tasmota };
 
                     // try to get IP address from StatusNET WiFi interface
                     // if not found, try to get IP address from StatusNET Ethernet interface    
                     // todo: handle multiple interfaces
                     // todo: handle IPV6
-                    if ((info?.StatusNET?.IPAddress??"") != "0.0.0.0")
-                    {                        
+                    if ((info?.StatusNET?.IPAddress ?? "") != "0.0.0.0")
+                    {
+
                         discoveredDevice.IpAddress = info?.StatusNET?.IPAddress;
                         discoveredDevice.Hostname = info?.StatusNET?.Hostname;
                         discoveredDevice.MacAddress = info?.StatusNET?.Mac;
-                    }else if (info?.StatusNET?.Ethernet != null && (info?.StatusNET?.Ethernet?.IPAddress??"") != "0.0.0.0" )
+                    }
+                    else if (info?.StatusNET?.Ethernet != null && (info?.StatusNET?.Ethernet?.IPAddress ?? "") != "0.0.0.0")
                     {
                         discoveredDevice.IpAddress = info?.StatusNET?.Ethernet?.IPAddress;
-                        discoveredDevice.Hostname = info?.StatusNET?.Ethernet?.Hostname;                        
+                        discoveredDevice.Hostname = info?.StatusNET?.Ethernet?.Hostname;
+
                         discoveredDevice.MacAddress = info?.StatusNET?.Ethernet?.Mac;
-                    }     
+                    }
+
 
                     return discoveredDevice;
                 }
@@ -156,9 +173,10 @@ public class TasmotaStrategy : IMqttDeviceStrategy
 
 
     public IEnumerable<string> MqttDiscoveryTopics => new[] { "stat/+/STATUS5" };
-    
+
     // Send command to group topic "tasmotas" to request Status 5 (Network) from all devices
-    public MqttDiscoveryMessage? DiscoveryMessage => new("tasmotas/cmnd/STATUS", "5");
+
+    public MqttDiscoveryMessage? DiscoveryMessage => new("cmnd/tasmotas/STATUS", "5");
 
     // JSON Models
     private class TasmotaInfo
@@ -188,19 +206,28 @@ public class TasmotaStrategy : IMqttDeviceStrategy
     }
 
     private class StatusEthernet
-    { 
-        public string? Hostname { get; set; } 
-        public string? Mac { get; set; } 
-        public string? IPAddress { get; set; } 
+    {
+
+        public string? Hostname { get; set; }
+
+        public string? Mac { get; set; }
+
+        public string? IPAddress { get; set; }
+
     }
 
     private class StatusNet
-    { 
-        public string? Hostname { get; set; } 
-        public string? Mac { get; set; } 
-        public string? IPAddress { get; set; } 
+    {
+
+        public string? Hostname { get; set; }
+
+        public string? Mac { get; set; }
+
+        public string? IPAddress { get; set; }
+
         public StatusEthernet? Ethernet { get; set; }
-    }   
+    }
+
 
     private class TasmotaModuleResponse
     {
