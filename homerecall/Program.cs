@@ -11,6 +11,9 @@ builder.Services.AddPersistence();
 // Add application interfaces, background services, and UI components
 builder.Services.AddApplicationServices();
 
+// Configure Logging based on Addon options
+builder.Logging.ConfigureLogging();
+
 // Build the application host
 var app = builder.Build();
 

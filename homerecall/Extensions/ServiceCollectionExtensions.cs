@@ -2,12 +2,13 @@ using HomeRecall.Persistence;
 using HomeRecall.Services;
 using HomeRecall.Services.Strategies;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MudBlazor.Services;
 
 namespace HomeRecall.Extensions;
 
 public static class ServiceCollectionExtensions
-{   
+{
     /// <summary>
     /// Configures the persistence layer, including SQLite database connection and EF Core context.
     /// Handles database path resolution for Docker/Add-on environments.
@@ -88,5 +89,43 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDeviceStrategy, AiOnTheEdgeStrategy>();
         services.AddSingleton<IDeviceStrategy, AwtrixStrategy>();
         services.AddSingleton<IDeviceStrategy, OpenHaspStrategy>();
+    }
+
+    /// <summary>
+    /// Configures logging based on environment options.json.
+    /// Default is info.
+    /// </summary>
+    public static void ConfigureLogging(this ILoggingBuilder logging)
+    {
+        var optionsPath = Environment.GetEnvironmentVariable("options_path") ?? "/data/options.json";
+        string? haLogLevel = "info";
+
+        if (File.Exists(optionsPath))
+        {
+            try
+            {
+                var json = File.ReadAllText(optionsPath);
+                var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("log_level", out var logLevelElement))
+                {
+                    haLogLevel = logLevelElement.GetString()?.ToLowerInvariant();
+                }
+            }
+            catch
+            {
+                // Fallback or ignore if unreadable
+            }
+        }
+
+        // Configure EF Core logging based on Addon log_level
+        logging.AddFilter((category, level) =>
+        {
+            if (category == "Microsoft.EntityFrameworkCore.Database.Command" && level == LogLevel.Information)
+            {
+                // Only show DB command logs if HA log_level is debug or trace
+                return haLogLevel == "debug" || haLogLevel == "trace";
+            }
+            return true;
+        });
     }
 }
