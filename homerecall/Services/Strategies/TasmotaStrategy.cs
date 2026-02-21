@@ -202,6 +202,51 @@ public class TasmotaStrategy : IMqttDeviceStrategy
                     {
                         version = statusJson.StatusFWR.Version;
                         _logger.LogTrace($"Retrieved firmware version {version} from {ip}.");
+
+                        // Try backing up Berry scripts if version >= 14.6.0
+                        // Tasmota versions are typically like '14.6.0(tasmota)' or '14.6.0'
+                        var versionParts = version.Split(new[] { '(', '-', 'A', 'B', 'a', 'b' }, StringSplitOptions.RemoveEmptyEntries)[0].Trim();
+                        if (Version.TryParse(versionParts, out var v) && v >= new Version(14, 6, 0))
+                        {
+                            try
+                            {
+                                var ufsListJson = await httpClient.GetFromJsonAsync<JsonElement>($"http://{ip}/cm?cmnd=UfsList");
+                                if (ufsListJson.TryGetProperty("UfsList", out var ufsListElem))
+                                {
+                                    if (ufsListElem.ValueKind == JsonValueKind.Array)
+                                    {
+                                        foreach (var fileArrayElem in ufsListElem.EnumerateArray())
+                                        {
+                                            if (fileArrayElem.ValueKind == JsonValueKind.Array && fileArrayElem.GetArrayLength() > 0)
+                                            {
+                                                string? fileName = fileArrayElem[0].GetString();
+                                                if (fileName != null && fileName.EndsWith(".be", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    try
+                                                    {
+                                                        var berryData = await httpClient.GetByteArrayAsync($"http://{ip}/ufsd?download=/{fileName}");
+                                                        files.Add(new BackupFile($"ufs/{fileName}", berryData));
+                                                        _logger.LogTrace($"Successfully downloaded Berry script {fileName} from {ip}.");
+                                                    }
+                                                    catch (Exception ex)
+                                                    {
+                                                        _logger.LogDebug(ex, $"Could not download Berry script {fileName} from {ip}.");
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    else if (ufsListElem.ValueKind == JsonValueKind.String && ufsListElem.GetString() == "Done")
+                                    {
+                                        _logger.LogTrace($"No files found in UFS for {device.Name} at {ip}.");
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, $"Could not retrieve UfsList from {ip} for {device.Name}.");
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
