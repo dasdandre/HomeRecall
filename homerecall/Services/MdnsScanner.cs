@@ -61,13 +61,17 @@ public class MdnsScanner : BackgroundService
                 await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
             }
         }
+        catch (OperationCanceledException)
+        {
+            // Expected during shutdown
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to start mDNS MulticastService. Ensure UDP port 5353 is available.");
         }
         finally
         {
-            _mdns.Stop();
+            _mdns?.Stop();
         }
     }
 
