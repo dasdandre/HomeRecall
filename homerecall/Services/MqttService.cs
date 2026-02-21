@@ -79,12 +79,12 @@ public class MqttService : IMqttService, IDisposable
 
             // Pre-load known devices to cache
             _knownDevices.Clear();
-            var devices = await context.Devices.Select(d => new { d.MacAddress, d.IpAddress }).ToListAsync();
-            foreach (var d in devices)
+            var interfaces = await context.NetworkInterfaces.Select(i => new { i.MacAddress, i.IpAddress }).ToListAsync();
+            foreach (var i in interfaces)
             {
-                if (!string.IsNullOrEmpty(d.MacAddress) && !string.IsNullOrEmpty(d.IpAddress))
+                if (!string.IsNullOrEmpty(i.MacAddress) && !string.IsNullOrEmpty(i.IpAddress))
                 {
-                    _knownDevices[d.MacAddress] = d.IpAddress;
+                    _knownDevices[i.MacAddress] = i.IpAddress;
                 }
             }
 
@@ -211,7 +211,7 @@ public class MqttService : IMqttService, IDisposable
                 var discovered = strategy.DiscoverFromMqtt(topic, payload);
 
                 // discovery always runs via mac address
-                if (discovered != null && !string.IsNullOrEmpty(discovered.MacAddress))
+                if (discovered != null && discovered.Interfaces.Any(i => !string.IsNullOrEmpty(i.MacAddress)))
                 {
                     await HandleDiscoveredDevice(discovered);
                     break;
@@ -270,18 +270,21 @@ public class MqttService : IMqttService, IDisposable
 
     private async Task HandleDiscoveredDevice(DiscoveredDevice discovered)
     {
-        if (discovered.MacAddress == null) return;
+        var primaryInterface = discovered.Interfaces.FirstOrDefault(i => !string.IsNullOrEmpty(i.MacAddress));
+        if (primaryInterface == null || primaryInterface.MacAddress == null) return;
+        var macAddress = primaryInterface.MacAddress;
+        var ipAddress = primaryInterface.IpAddress;
 
         // Optimization: Check cache first to avoid creating a scope and hitting the DB
         // If we know this MAC, and the IP is the same, we can skip DB operations entirely.
-        if (_knownDevices.TryGetValue(discovered.MacAddress, out var knownIp) && knownIp == discovered.IpAddress)
+        if (_knownDevices.TryGetValue(macAddress, out var knownIp) && knownIp == ipAddress)
         {
             return;
         }
 
         // Try to add this MAC to the processing set. If checking fails (already there),
         // it means another thread is already processing this device. Drop the message.
-        if (!_processingDevices.TryAdd(discovered.MacAddress, 0))
+        if (!_processingDevices.TryAdd(macAddress, 0))
         {
             return;
         }
@@ -289,7 +292,7 @@ public class MqttService : IMqttService, IDisposable
         try
         {
             // Double-check: Check cache again after acquiring lock case another thread processed it
-            if (_knownDevices.TryGetValue(discovered.MacAddress, out knownIp) && knownIp == discovered.IpAddress)
+            if (_knownDevices.TryGetValue(macAddress, out knownIp) && knownIp == ipAddress)
             {
                 return;
             }
@@ -301,7 +304,10 @@ public class MqttService : IMqttService, IDisposable
             if (settings?.MqttAutoAdd == true)
             {
                 // does a device with this mac address already exist?
-                var foundDevice = await context.Devices.FirstOrDefaultAsync(d => d.MacAddress == discovered.MacAddress);
+                var foundDevice = await context.Devices
+                    .Include(d => d.Interfaces)
+                    .FirstOrDefaultAsync(d => d.Interfaces.Any(i => i.MacAddress == macAddress));
+
                 if (foundDevice == null)
                 {
                     var strategy = _strategies.FirstOrDefault(s => s.SupportedType == discovered.Type);
@@ -312,47 +318,57 @@ public class MqttService : IMqttService, IDisposable
                     }
 
                     // probe the device to get all information
-                    var probedDevice = await strategy.ProbeAsync(discovered.IpAddress, _httpClientFactory.CreateClient());
+                    var probedDevice = await strategy.ProbeAsync(ipAddress, _httpClientFactory.CreateClient());
                     if (probedDevice == null)
                     {
-                        _logger.LogWarning("Failed to probe device {IpAddress}", discovered.IpAddress);
+                        _logger.LogWarning("Failed to probe device {IpAddress}", ipAddress);
                         return;
                     }
 
                     // create new device or update existing if probed MAC matches an existing device
-                    var probedMac = probedDevice.MacAddress;
+                    var probedPrimaryInterface = probedDevice.Interfaces.FirstOrDefault(i => !string.IsNullOrEmpty(i.MacAddress));
+                    var probedMac = probedPrimaryInterface?.MacAddress;
+                    var probedIp = probedPrimaryInterface?.IpAddress ?? ipAddress;
+
                     if (probedMac == null) return;
 
-                    var existingDevice = await context.Devices.FirstOrDefaultAsync(d => d.MacAddress == probedMac);
+                    var existingDevice = await context.Devices
+                        .Include(d => d.Interfaces)
+                        .FirstOrDefaultAsync(d => d.Interfaces.Any(i => i.MacAddress == probedMac));
 
                     if (existingDevice != null)
                     {
                         // Device exists with the probed MAC, but was not found by discovered MAC
                         // This means discovered.MacAddress != probedMac
                         // We should update the existing device and ensure the cache prevents future lookups
-                        existingDevice.IpAddress = probedDevice.IpAddress;
                         existingDevice.Name = probedDevice.Name;
                         existingDevice.CurrentFirmwareVersion = probedDevice.FirmwareVersion;
 
+                        var existingInterface = existingDevice.Interfaces.FirstOrDefault(i => i.MacAddress == probedMac);
+                        if (existingInterface != null)
+                        {
+                            existingInterface.IpAddress = probedIp;
+                        }
+                        else
+                        {
+                            existingDevice.Interfaces.Add(new NetworkInterface { IpAddress = probedIp, MacAddress = probedMac });
+                        }
+
                         await context.SaveChangesAsync();
 
-                        if (existingDevice.MacAddress != null)
-                        {
-                            // Update cache for the REAL mac
-                            _knownDevices.AddOrUpdate(existingDevice.MacAddress, existingDevice.IpAddress, (k, v) => existingDevice.IpAddress);
-                        }
-                        _logger.LogInformation("Updated existing device by probed MAC: {Name} {Mac} ({IpAddress})", existingDevice.Name, existingDevice.MacAddress, existingDevice.IpAddress);
+                        // Update cache for the REAL mac
+                        _knownDevices.AddOrUpdate(probedMac, probedIp, (k, v) => probedIp);
+                        _logger.LogInformation("Updated existing device by probed MAC: {Name} {Mac} ({IpAddress})", existingDevice.Name, probedMac, probedIp);
                     }
                     else
                     {
                         var device = new Device
                         {
                             Name = probedDevice.Name,
-                            IpAddress = probedDevice.IpAddress,
                             Type = probedDevice.Type,
-                            MacAddress = probedMac,
                             HardwareModel = probedDevice.HardwareModel,
-                            CurrentFirmwareVersion = probedDevice.FirmwareVersion
+                            CurrentFirmwareVersion = probedDevice.FirmwareVersion,
+                            Interfaces = probedDevice.Interfaces
                         };
 
                         // add device to context
@@ -360,31 +376,32 @@ public class MqttService : IMqttService, IDisposable
                         // save changes
                         await context.SaveChangesAsync();
 
-                        if (device.MacAddress != null)
+                        foreach (var i in device.Interfaces)
                         {
-                            // Update cache
-                            _knownDevices.AddOrUpdate(device.MacAddress, device.IpAddress, (k, v) => device.IpAddress);
+                            if (!string.IsNullOrEmpty(i.MacAddress))
+                                _knownDevices.AddOrUpdate(i.MacAddress, i.IpAddress, (k, v) => i.IpAddress);
                         }
 
-                        _logger.LogInformation("Auto-added device via MQTT: {Name} {Type} ({IpAddress})", device.Name, device.Type, device.IpAddress);
+                        _logger.LogInformation("Auto-added device via MQTT: {Name} {Type} ({IpAddress})", device.Name, device.Type, device.Interfaces.FirstOrDefault()?.IpAddress);
                     }
 
                     // Also update cache for the DISCOVERED mac address to avoid re-probing
-                    if (discovered.MacAddress != probedMac)
+                    if (macAddress != probedMac)
                     {
-                        _knownDevices.AddOrUpdate(discovered.MacAddress, probedDevice.IpAddress, (k, v) => probedDevice.IpAddress);
+                        _knownDevices.AddOrUpdate(macAddress, probedIp, (k, v) => probedIp);
                     }
                 }
                 else
                 {
-                    if (foundDevice.MacAddress != null)
+                    var foundInterface = foundDevice.Interfaces.FirstOrDefault(i => i.MacAddress == macAddress);
+                    if (foundInterface != null)
                     {
                         // Update cache for existing device even if no changes, so we skip next time
-                        _knownDevices.AddOrUpdate(foundDevice.MacAddress, foundDevice.IpAddress, (k, v) => foundDevice.IpAddress);
+                        _knownDevices.AddOrUpdate(macAddress, foundInterface.IpAddress, (k, v) => foundInterface.IpAddress);
                     }
 
                     // same mac, same type, different ip address        
-                    if (foundDevice.Type == discovered.Type && foundDevice.IpAddress != discovered.IpAddress)
+                    if (foundDevice.Type == discovered.Type && foundInterface?.IpAddress != ipAddress)
                     {
                         var strategy = _strategies.FirstOrDefault(s => s.SupportedType == discovered.Type);
                         if (strategy == null)
@@ -394,26 +411,27 @@ public class MqttService : IMqttService, IDisposable
                         }
 
                         // probe the device to get all information
-                        var probedDevice = await strategy.ProbeAsync(discovered.IpAddress, _httpClientFactory.CreateClient());
+                        var probedDevice = await strategy.ProbeAsync(ipAddress, _httpClientFactory.CreateClient());
                         if (probedDevice == null)
                         {
-                            _logger.LogWarning("Failed to probe device {IpAddress}", discovered.IpAddress);
+                            _logger.LogWarning("Failed to probe device {IpAddress}", ipAddress);
                             return;
                         }
 
                         // update device ip address
                         if (probedDevice.Name == foundDevice.Name)
                         {
-                            foundDevice.IpAddress = discovered.IpAddress;
-                            await context.SaveChangesAsync();
-
-                            if (foundDevice.MacAddress != null)
+                            if (foundInterface != null)
                             {
-                                // Update cache
-                                _knownDevices[foundDevice.MacAddress] = foundDevice.IpAddress;
+                                foundInterface.IpAddress = ipAddress;
                             }
 
-                            _logger.LogInformation("Updated device IP address via MQTT: {Name} ({IpAddress})", foundDevice.Name, foundDevice.IpAddress);
+                            await context.SaveChangesAsync();
+
+                            // Update cache
+                            _knownDevices[macAddress] = ipAddress;
+
+                            _logger.LogInformation("Updated device IP address via MQTT: {Name} ({IpAddress})", foundDevice.Name, ipAddress);
                         }
                     }
                 }
@@ -425,7 +443,7 @@ public class MqttService : IMqttService, IDisposable
         }
         finally
         {
-            _processingDevices.TryRemove(discovered.MacAddress, out _);
+            _processingDevices.TryRemove(macAddress, out _);
         }
     }
 

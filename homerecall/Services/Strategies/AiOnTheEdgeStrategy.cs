@@ -1,9 +1,9 @@
 using System.Text.RegularExpressions;
 namespace HomeRecall.Services.Strategies;
 
-using HomeRecall.Services;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
+using HomeRecall.Services;
 
 public class AiOnTheEdgeStrategy : IDeviceStrategy
 {
@@ -21,11 +21,11 @@ public class AiOnTheEdgeStrategy : IDeviceStrategy
                 {
                     return new DiscoveredDevice
                     {
-                        IpAddress = ip,
                         Type = DeviceType.AiOnTheEdge,
                         Name = $"AiEdge-{ip.Split('.').Last()}",
                         // MAC address requires /api/system or parsing the Overview page
-                        FirmwareVersion = "Detected"
+                        FirmwareVersion = "Detected",
+                        Interfaces = new List<NetworkInterface> { new() { IpAddress = ip, Type = NetworkInterfaceType.Wifi } }
                     };
                 }
             }
@@ -47,10 +47,10 @@ public class AiOnTheEdgeStrategy : IDeviceStrategy
                         {
                             return new DiscoveredDevice
                             {
-                                IpAddress = ip,
                                 Type = DeviceType.AiOnTheEdge,
                                 Name = $"AiEdge-{ip.Split('.').Last()}",
-                                FirmwareVersion = content.Trim()
+                                FirmwareVersion = content.Trim(),
+                                Interfaces = new List<NetworkInterface> { new() { IpAddress = ip, Type = NetworkInterfaceType.Wifi } }
                             };
                         }
                     }
@@ -58,26 +58,30 @@ public class AiOnTheEdgeStrategy : IDeviceStrategy
             }
             catch { }
         }
-        catch {}
+        catch { }
         return null;
     }
 
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();
+        var ip = device.Interfaces.FirstOrDefault()?.IpAddress;
+        if (ip == null) return new DeviceBackupResult(files, string.Empty);
 
-        var configIni = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/fileserver/config/config.ini");
+        var configIni = await httpClient.GetByteArrayAsync($"http://{ip}/fileserver/config/config.ini");
         files.Add(new("config/config.ini", configIni));
 
         string[] potentialImages = { "config/ref0.jpg", "config/ref1.jpg", "config/reference.jpg" };
-        foreach(var imgPath in potentialImages)
+        foreach (var imgPath in potentialImages)
         {
-            try 
+            try
+
             {
-                var imgData = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/fileserver/{imgPath}");
+                var imgData = await httpClient.GetByteArrayAsync($"http://{ip}/fileserver/{imgPath}");
                 files.Add(new(imgPath, imgData));
             }
-            catch 
+            catch
+
             {
                 // Ignore missing images
             }
@@ -87,10 +91,10 @@ public class AiOnTheEdgeStrategy : IDeviceStrategy
         // AI-on-the-Edge often has /html/version.txt or just parse config? 
         // Or /api/hello returns basic info?
         // Standard API endpoint seems to be /api/version in recent builds.
-        try 
+        try
         {
-             version = await httpClient.GetStringAsync($"http://{device.IpAddress}/api/version");
-             version = version.Trim().Replace("\"", ""); // Cleanup if JSON string
+            version = await httpClient.GetStringAsync($"http://{ip}/api/version");
+            version = version.Trim().Replace("\"", ""); // Cleanup if JSON string
         }
         catch { }
 

@@ -71,7 +71,7 @@ public class DeviceScanner : IDeviceScanner
                         var device = await strategy.ProbeAsync(ip, client);
                         if (device != null)
                         {
-                            _logger.LogInformation("Found device {Type} at {Ip} ({Name})", device.Type, device.IpAddress, device.Name);
+                            _logger.LogInformation("Found device {Type} at {Ip} ({Name})", device.Type, device.Interfaces.FirstOrDefault()?.IpAddress ?? ip, device.Name);
                             foundDevices.Add(device);
                             foundDevice = device;
                             break; // Found matching type, move to next IP

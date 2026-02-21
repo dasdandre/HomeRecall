@@ -1,9 +1,9 @@
 namespace HomeRecall.Services.Strategies;
 
-using HomeRecall.Services;
+using System.Net.Http.Json;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
-using System.Net.Http.Json;
+using HomeRecall.Services;
 
 public class OpenDtuStrategy : IDeviceStrategy
 {
@@ -17,39 +17,49 @@ public class OpenDtuStrategy : IDeviceStrategy
             if (status?.Hostname != null) // Version check is implicit
             {
                 string name = !string.IsNullOrWhiteSpace(status.Hostname) ? status.Hostname : $"OpenDTU-{ip.Split('.').Last()}";
-                
-                return new DiscoveredDevice 
-                { 
-                    IpAddress = ip, 
-                    Type = DeviceType.OpenDtu, 
-                    Name = name, 
-                    FirmwareVersion = status.Version ?? "Detected"
+
+
+                return new DiscoveredDevice
+                {
+
+                    Type = DeviceType.OpenDtu,
+
+                    Name = name,
+
+                    FirmwareVersion = status.Version ?? "Detected",
+                    Interfaces = new List<NetworkInterface> { new() { IpAddress = ip, Hostname = status.Hostname, Type = NetworkInterfaceType.Wifi } }
                 };
             }
         }
-        catch {}
+        catch { }
         return null;
     }
 
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
-        var data = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/api/config");
+        var ip = device.Interfaces.FirstOrDefault()?.IpAddress;
+        if (ip == null) return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
+
+        var data = await httpClient.GetByteArrayAsync($"http://{ip}/api/config");
         var files = new List<BackupFile> { new("config.json", data) };
 
         string version = string.Empty;
-        try 
+        try
         {
-             var status = await httpClient.GetFromJsonAsync<OpenDtuStatus>($"http://{device.IpAddress}/api/system/status");
-             if (status?.Version != null) version = status.Version;
+            var status = await httpClient.GetFromJsonAsync<OpenDtuStatus>($"http://{ip}/api/system/status");
+            if (status?.Version != null) version = status.Version;
         }
         catch { }
 
         return new DeviceBackupResult(files, version);
     }
-    
-    private class OpenDtuStatus 
-    { 
-        public string? Version { get; set; } 
+
+
+    private class OpenDtuStatus
+    {
+
+        public string? Version { get; set; }
+
         public string? Hostname { get; set; }
         // OpenDTU (at least recent versions) provides network info with MAC in /api/network/status or similar, 
         // but /api/system/status might not have it directly. 

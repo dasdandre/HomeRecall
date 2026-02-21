@@ -121,7 +121,8 @@ public partial class ScanDialog : ComponentBase, IDisposable
             _foundCount = report.FoundCount;
             if (report.LatestDevice != null)
             {
-                if (_foundDevices != null && !_foundDevices.Any(d => d.IpAddress == report.LatestDevice.IpAddress))
+                var latestIp = report.LatestDevice.Interfaces.FirstOrDefault()?.IpAddress;
+                if (_foundDevices != null && latestIp != null && !_foundDevices.Any(d => d.Interfaces.Any(i => i.IpAddress == latestIp)))
                 {
                     _foundDevices.Add(report.LatestDevice);
                     _selectedItems.Add(report.LatestDevice); // Auto-select new items
@@ -134,7 +135,7 @@ public partial class ScanDialog : ComponentBase, IDisposable
         {
             string endIp = GetEndIp();
 
-            var knownIps = await Context.Devices.Select(d => d.IpAddress).ToListAsync();
+            var knownIps = await Context.NetworkInterfaces.Select(i => i.IpAddress).ToListAsync();
 
             var (planned, skipped) = CalculatePlannedAndSkippedCount(_startIp, endIp, knownIps);
             _plannedScanCount = planned;
@@ -149,7 +150,8 @@ public partial class ScanDialog : ComponentBase, IDisposable
                 // Merge just in case
                 foreach (var r in results)
                 {
-                    if (!_foundDevices.Any(d => d.IpAddress == r.IpAddress))
+                    var rIp = r.Interfaces.FirstOrDefault()?.IpAddress;
+                    if (rIp != null && !_foundDevices.Any(d => d.Interfaces.Any(i => i.IpAddress == rIp)))
                         _foundDevices.Add(r);
                 }
             }
@@ -227,17 +229,16 @@ public partial class ScanDialog : ComponentBase, IDisposable
         int addedCount = 0;
         foreach (var d in _selectedItems)
         {
-            if (!Context.Devices.Any(x => x.IpAddress == d.IpAddress))
+            var primaryInterface = d.Interfaces.FirstOrDefault();
+            if (primaryInterface != null && !Context.NetworkInterfaces.Any(x => x.IpAddress == primaryInterface.IpAddress))
             {
                 Context.Devices.Add(new Device
                 {
                     Name = d.Name,
-                    IpAddress = d.IpAddress,
                     Type = d.Type,
-                    MacAddress = d.MacAddress,
-                    Hostname = d.Hostname,
+                    HardwareModel = d.HardwareModel,
                     CurrentFirmwareVersion = d.FirmwareVersion,
-                    HardwareModel = d.HardwareModel
+                    Interfaces = d.Interfaces
                 });
                 addedCount++;
             }

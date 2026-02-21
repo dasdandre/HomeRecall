@@ -23,6 +23,7 @@ public class TasmotaStrategy : IMqttDeviceStrategy
                 string name = defaultName;
                 string hostname = string.Empty;
                 string mac = string.Empty;
+                var interfaceType = NetworkInterfaceType.Wifi;
                 List<string> candidateNames = new List<string>();
 
                 // Try to get Friendly Name / DeviceName / Hostname (heavier payload)
@@ -65,6 +66,7 @@ public class TasmotaStrategy : IMqttDeviceStrategy
                         if (string.IsNullOrEmpty(mac) || (status?.StatusNET?.IPAddress == "0.0.0.0" && status?.StatusNET?.Ethernet != null))
                         {
                             mac = status?.StatusNET?.Ethernet?.Mac ?? mac;
+                            interfaceType = NetworkInterfaceType.Ethernet;
                             if (string.IsNullOrEmpty(hostname))
                             {
                                 hostname = status?.StatusNET?.Ethernet?.Hostname ?? "";
@@ -86,25 +88,68 @@ public class TasmotaStrategy : IMqttDeviceStrategy
                     }
                     catch { }
 
-                    return new DiscoveredDevice
+                    var discoveredDevice = new DiscoveredDevice
                     {
-                        IpAddress = ip,
                         Type = DeviceType.Tasmota,
                         Name = name,
-                        Hostname = hostname,
-                        MacAddress = mac,
                         HardwareModel = hardwareModel,
-                        FirmwareVersion = status2.StatusFWR.Version
+                        FirmwareVersion = status2.StatusFWR.Version,
+                        Interfaces = new List<NetworkInterface>()
                     };
+
+                    if (status?.StatusNET != null && (status.StatusNET.IPAddress ?? "") != "0.0.0.0" && !string.IsNullOrEmpty(status.StatusNET.IPAddress))
+                    {
+                        discoveredDevice.Interfaces.Add(new NetworkInterface
+                        {
+
+                            IpAddress = status.StatusNET.IPAddress,
+
+                            Hostname = status.StatusNET.Hostname,
+
+                            MacAddress = status.StatusNET.Mac,
+                            Type = NetworkInterfaceType.Wifi
+                        });
+                    }
+
+                    if (status?.StatusNET?.Ethernet != null && (status.StatusNET.Ethernet.IPAddress ?? "") != "0.0.0.0" && !string.IsNullOrEmpty(status.StatusNET.Ethernet.IPAddress))
+                    {
+                        discoveredDevice.Interfaces.Add(new NetworkInterface
+                        {
+
+                            IpAddress = status.StatusNET.Ethernet.IPAddress,
+
+                            Hostname = status.StatusNET.Ethernet.Hostname,
+
+                            MacAddress = status.StatusNET.Ethernet.Mac,
+                            Type = NetworkInterfaceType.Ethernet
+                        });
+                    }
+
+                    // Fallback if neither was added but we have an IP from the request itself
+                    if (discoveredDevice.Interfaces.Count == 0)
+                    {
+                        discoveredDevice.Interfaces.Add(new NetworkInterface
+                        {
+
+                            IpAddress = ip,
+
+                            Hostname = hostname,
+
+                            MacAddress = mac,
+                            Type = interfaceType
+                        });
+                    }
+
+                    return discoveredDevice;
                 }
                 catch { }
 
                 return new DiscoveredDevice
                 {
-                    IpAddress = ip,
                     Type = DeviceType.Tasmota,
                     Name = name,
-                    FirmwareVersion = status2.StatusFWR.Version
+                    FirmwareVersion = status2.StatusFWR.Version,
+                    Interfaces = new List<NetworkInterface> { new() { IpAddress = ip } }
                 };
             }
         }
@@ -114,21 +159,47 @@ public class TasmotaStrategy : IMqttDeviceStrategy
 
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
-        var data = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/dl");
-        var files = new List<BackupFile> { new("Config.dmp", data) };
+        if (device.Interfaces == null || device.Interfaces.Count == 0)
+            return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
 
-        string version = string.Empty;
-        try
+        // Prefer Ethernet first, then fallback to others
+        var interfacesToTry = device.Interfaces
+            .OrderByDescending(i => i.Type == NetworkInterfaceType.Ethernet)
+            .ToList();
+
+        foreach (var netInterface in interfacesToTry)
         {
-            var statusJson = await httpClient.GetFromJsonAsync<TasmotaStatus2>($"http://{device.IpAddress}/cm?cmnd=Status 2");
-            if (statusJson?.StatusFWR?.Version != null)
+            var ip = netInterface.IpAddress;
+            if (string.IsNullOrEmpty(ip)) continue;
+
+            try
             {
-                version = statusJson.StatusFWR.Version;
+                var data = await httpClient.GetByteArrayAsync($"http://{ip}/dl");
+                var files = new List<BackupFile> { new("Config.dmp", data) };
+
+                string version = string.Empty;
+                try
+                {
+                    var statusJson = await httpClient.GetFromJsonAsync<TasmotaStatus2>($"http://{ip}/cm?cmnd=Status 2");
+                    if (statusJson?.StatusFWR?.Version != null)
+                    {
+                        version = statusJson.StatusFWR.Version;
+                    }
+                }
+                catch { }
+
+                // If we reach here, backup succeeded on this interface
+                return new DeviceBackupResult(files, version);
+            }
+            catch
+            {
+                // Failed on this interface, continue to the next one
+                continue;
             }
         }
-        catch { }
 
-        return new DeviceBackupResult(files, version);
+        // Return empty result if all interfaces failed
+        return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
     }
 
     public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)
@@ -143,25 +214,28 @@ public class TasmotaStrategy : IMqttDeviceStrategy
                 {
                     var discoveredDevice = new DiscoveredDevice { Type = DeviceType.Tasmota };
 
-                    // try to get IP address from StatusNET WiFi interface
-                    // if not found, try to get IP address from StatusNET Ethernet interface    
-                    // todo: handle multiple interfaces
-                    // todo: handle IPV6
-                    if ((info?.StatusNET?.IPAddress ?? "") != "0.0.0.0")
+                    if ((info?.StatusNET?.IPAddress ?? "") != "0.0.0.0" && !string.IsNullOrEmpty(info?.StatusNET?.IPAddress))
                     {
-
-                        discoveredDevice.IpAddress = info?.StatusNET?.IPAddress ?? "";
-                        discoveredDevice.Hostname = info?.StatusNET?.Hostname;
-                        discoveredDevice.MacAddress = info?.StatusNET?.Mac;
-                    }
-                    else if (info?.StatusNET?.Ethernet != null && (info?.StatusNET?.Ethernet?.IPAddress ?? "") != "0.0.0.0")
-                    {
-                        discoveredDevice.IpAddress = info?.StatusNET?.Ethernet?.IPAddress ?? "";
-                        discoveredDevice.Hostname = info?.StatusNET?.Ethernet?.Hostname;
-
-                        discoveredDevice.MacAddress = info?.StatusNET?.Ethernet?.Mac;
+                        discoveredDevice.Interfaces.Add(new()
+                        {
+                            IpAddress = info.StatusNET.IPAddress,
+                            Hostname = info.StatusNET.Hostname,
+                            MacAddress = info.StatusNET.Mac,
+                            Type = NetworkInterfaceType.Wifi
+                        });
                     }
 
+
+                    if (info?.StatusNET?.Ethernet != null && (info.StatusNET.Ethernet.IPAddress ?? "") != "0.0.0.0" && !string.IsNullOrEmpty(info.StatusNET.Ethernet.IPAddress))
+                    {
+                        discoveredDevice.Interfaces.Add(new()
+                        {
+                            IpAddress = info.StatusNET.Ethernet.IPAddress,
+                            Hostname = info.StatusNET.Ethernet.Hostname,
+                            MacAddress = info.StatusNET.Ethernet.Mac,
+                            Type = NetworkInterfaceType.Ethernet
+                        });
+                    }
 
                     return discoveredDevice;
                 }

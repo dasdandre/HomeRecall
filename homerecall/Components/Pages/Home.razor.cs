@@ -51,7 +51,7 @@ public partial class Home : ComponentBase
         if (x.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        if (x.IpAddress.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+        if (x.Interfaces.Any(i => i.IpAddress.Contains(_searchString, StringComparison.OrdinalIgnoreCase)))
             return true;
 
         if (x.Type.ToString().Contains(_searchString, StringComparison.OrdinalIgnoreCase))
@@ -69,7 +69,7 @@ public partial class Home : ComponentBase
         // Search Filter
         if (string.IsNullOrWhiteSpace(_searchString)) return true;
         if (device.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase)) return true;
-        if (device.IpAddress.Contains(_searchString, StringComparison.OrdinalIgnoreCase)) return true;
+        if (device.Interfaces.Any(i => i.IpAddress.Contains(_searchString, StringComparison.OrdinalIgnoreCase))) return true;
         if (device.Type.ToString().Contains(_searchString, StringComparison.OrdinalIgnoreCase)) return true;
         return false;
     }
@@ -78,7 +78,7 @@ public partial class Home : ComponentBase
     {
         _loading = true;
         // Include Backups to show count and last backup status
-        _devices = await Context.Devices.Include(d => d.Backups).ToListAsync();
+        _devices = await Context.Devices.Include(d => d.Backups).Include(d => d.Interfaces).ToListAsync();
         _loading = false;
     }
 
@@ -126,8 +126,8 @@ public partial class Home : ComponentBase
 
         if (result != null && !result.Canceled)
         {
-             await LoadDevices();
-         }
+            await LoadDevices();
+        }
     }
 
     // Triggers a backup for a single device and handles UI state
@@ -142,7 +142,7 @@ public partial class Home : ComponentBase
         {
             await BackupService.PerformBackupAsync(device.Id);
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             Snackbar.Add(String.Format(L["Devices_Backup_Error"], device.Name, ex.Message), Severity.Error);
         }

@@ -1,10 +1,10 @@
 namespace HomeRecall.Services.Strategies;
 
-using HomeRecall.Services;
-using HomeRecall.Persistence.Entities;
-using HomeRecall.Persistence.Enums;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using HomeRecall.Persistence.Entities;
+using HomeRecall.Persistence.Enums;
+using HomeRecall.Services;
 
 public class ShellyGen2Strategy : IDeviceStrategy
 {
@@ -17,35 +17,42 @@ public class ShellyGen2Strategy : IDeviceStrategy
             var info = await httpClient.GetFromJsonAsync<ShellyDeviceInfo>($"http://{ip}/rpc/Shelly.GetDeviceInfo");
             if (info != null && (info.Gen == 2 || info.Gen == 3 || !string.IsNullOrEmpty(info.App)))
             {
-                string name = !string.IsNullOrWhiteSpace(info.Name) ? info.Name : 
+                string name = !string.IsNullOrWhiteSpace(info.Name) ? info.Name :
+
                               !string.IsNullOrWhiteSpace(info.Id) ? info.Id :
                               $"ShellyGen2-{ip.Split('.').Last()}";
-                
+
+
                 string version = info.Ver ?? info.FwId ?? "Gen2+";
 
-                return new DiscoveredDevice 
-                { 
-                    IpAddress = ip, 
-                    Type = DeviceType.ShellyGen2, 
-                    Name = name, 
-                    MacAddress = info.Mac,
+                return new DiscoveredDevice
+                {
+
+                    Type = DeviceType.ShellyGen2,
+
+                    Name = name,
+
                     FirmwareVersion = version,
-                    HardwareModel = info.App
+                    HardwareModel = info.App,
+                    Interfaces = new List<NetworkInterface> { new() { IpAddress = ip, MacAddress = info.Mac, Type = NetworkInterfaceType.Wifi } }
                 };
             }
         }
-        catch {}
+        catch { }
         return null;
     }
 
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
-        var data = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/rpc/Shelly.GetConfig");
+        var ip = device.Interfaces.FirstOrDefault()?.IpAddress;
+        if (ip == null) return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
+
+        var data = await httpClient.GetByteArrayAsync($"http://{ip}/rpc/Shelly.GetConfig");
         var files = new List<BackupFile> { new("config.json", data) };
 
         try
         {
-            var scriptList = await httpClient.GetFromJsonAsync<ShellyScriptListResponse>($"http://{device.IpAddress}/rpc/Script.List");
+            var scriptList = await httpClient.GetFromJsonAsync<ShellyScriptListResponse>($"http://{ip}/rpc/Script.List");
             if (scriptList?.Scripts != null)
             {
                 foreach (var script in scriptList.Scripts)
@@ -57,7 +64,7 @@ public class ShellyGen2Strategy : IDeviceStrategy
                         while (true)
                         {
                             var codeResp = await httpClient.GetFromJsonAsync<ShellyScriptCodeResponse>(
-                                $"http://{device.IpAddress}/rpc/Script.GetCode?id={script.Id}&offset={offset}");
+                                $"http://{ip}/rpc/Script.GetCode?id={script.Id}&offset={offset}");
 
                             if (codeResp?.Data != null)
                             {
@@ -70,7 +77,7 @@ public class ShellyGen2Strategy : IDeviceStrategy
 
                         if (sb.Length > 0)
                         {
-                            string safeName = script.Name?? "";                            
+                            string safeName = script.Name ?? "";
                             if (string.IsNullOrWhiteSpace(safeName))
                             {
                                 safeName = $"script_{script.Id}";
@@ -105,18 +112,20 @@ public class ShellyGen2Strategy : IDeviceStrategy
         string version = string.Empty;
         try
         {
-             var deviceInfo = await httpClient.GetFromJsonAsync<ShellyDeviceInfo>($"http://{device.IpAddress}/rpc/Shelly.GetDeviceInfo");
-             if (deviceInfo?.Ver != null) version = deviceInfo.Ver;
-             else if (deviceInfo?.FwId != null) version = deviceInfo.FwId;
+            var deviceInfo = await httpClient.GetFromJsonAsync<ShellyDeviceInfo>($"http://{ip}/rpc/Shelly.GetDeviceInfo");
+            if (deviceInfo?.Ver != null) version = deviceInfo.Ver;
+            else if (deviceInfo?.FwId != null) version = deviceInfo.FwId;
         }
         catch { }
 
         return new DeviceBackupResult(files, version);
     }
-    
+
     // JSON models
-    private class ShellyDeviceInfo 
-    { 
+
+    private class ShellyDeviceInfo
+    {
+
         [JsonPropertyName("ver")] public string? Ver { get; set; }
         [JsonPropertyName("fw_id")] public string? FwId { get; set; }
         [JsonPropertyName("name")] public string? Name { get; set; }

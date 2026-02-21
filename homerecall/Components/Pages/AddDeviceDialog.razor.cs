@@ -19,6 +19,7 @@ public partial class AddDeviceDialog : ComponentBase
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
 
     private Device model = new Device();
+    private string _ipAddress = string.Empty;
     private bool success;
     private bool _isScanning;
 
@@ -26,12 +27,12 @@ public partial class AddDeviceDialog : ComponentBase
     {
         if (string.IsNullOrWhiteSpace(ip)) return L["AddDevice_IpRequired"];
         if (!System.Net.IPAddress.TryParse(ip, out _)) return L["AddDevice_InvalidIp"];
-        
-        if (await Context.Devices.AnyAsync(d => d.IpAddress == ip))
+
+        if (await Context.NetworkInterfaces.AnyAsync(i => i.IpAddress == ip))
         {
             return L["AddDevice_AlreadyExists"];
         }
-        
+
         return null;
     }
 
@@ -39,10 +40,10 @@ public partial class AddDeviceDialog : ComponentBase
 
     private async Task Submit()
     {
-        if (string.IsNullOrWhiteSpace(model.IpAddress)) return;
+        if (string.IsNullOrWhiteSpace(_ipAddress)) return;
 
         // Check if already exists
-        if (await Context.Devices.AnyAsync(d => d.IpAddress == model.IpAddress))
+        if (await Context.NetworkInterfaces.AnyAsync(i => i.IpAddress == _ipAddress))
         {
             Snackbar.Add(L["AddDevice_AlreadyExists"], Severity.Warning);
             return;
@@ -51,7 +52,7 @@ public partial class AddDeviceDialog : ComponentBase
         _isScanning = true;
         try
         {
-            var results = await Scanner.ScanNetworkAsync(model.IpAddress, model.IpAddress, new[] { model.Type }.ToList());
+            var results = await Scanner.ScanNetworkAsync(_ipAddress, _ipAddress, new[] { model.Type }.ToList());
             var discovered = results.FirstOrDefault();
 
             if (discovered != null)
@@ -60,10 +61,9 @@ public partial class AddDeviceDialog : ComponentBase
                 if (discovered.Type == model.Type)
                 {
                     model.Name = discovered.Name;
-                    model.Hostname = discovered.Hostname;
-                    model.MacAddress = discovered.MacAddress;
                     model.HardwareModel = discovered.HardwareModel;
                     model.CurrentFirmwareVersion = discovered.FirmwareVersion;
+                    model.Interfaces = discovered.Interfaces;
 
                     Context.Devices.Add(model);
                     await Context.SaveChangesAsync();
@@ -77,7 +77,7 @@ public partial class AddDeviceDialog : ComponentBase
             }
             else
             {
-                Snackbar.Add(L["AddDevice_NotFound", model.IpAddress], Severity.Error);
+                Snackbar.Add(L["AddDevice_NotFound", _ipAddress], Severity.Error);
             }
         }
         catch (Exception ex)

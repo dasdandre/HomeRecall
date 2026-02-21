@@ -5,23 +5,11 @@ namespace HomeRecall.Services.Strategies;
 
 public class DiscoveredDevice
 {
-    public string IpAddress { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public string? Hostname { get; set; }
-
-    private string? _macAddress;
-    public string? MacAddress
-    {
-
-        get => _macAddress;
-
-        set => _macAddress = HomeRecall.Utilities.NetworkUtils.NormalizeMac(value);
-
-    }
-
     public string? HardwareModel { get; set; }
     public DeviceType Type { get; set; }
     public string FirmwareVersion { get; set; } = string.Empty;
+    public List<NetworkInterface> Interfaces { get; set; } = new();
 }
 
 public record DeviceBackupResult(List<BackupFile> Files, string FirmwareVersion);

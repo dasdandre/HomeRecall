@@ -30,7 +30,11 @@
                     <MudCardHeader>
                         <CardHeaderContent>
                             <MudText Typo="Typo.h6">@device.Name</MudText>
-                            <MudLink Href="@($"http://{device.IpAddress}")" Target="_blank" Underline="Underline.Hover">@device.IpAddress</MudLink>
+                            @if (device.Interfaces.Any())
+                            {
+                                var ip = device.Interfaces.First().IpAddress;
+                                <MudLink Href="@($"http://{ip}")" Target="_blank" Underline="Underline.Hover">@ip</MudLink>
+                            }
                         </CardHeaderContent>
                         <CardHeaderActions>
                             <MudChip T="string" Color="@UiHelpers.GetColorForDeviceType(device.Type)" Size="Size.Small" Variant="Variant.Text">@device.Type</MudChip>

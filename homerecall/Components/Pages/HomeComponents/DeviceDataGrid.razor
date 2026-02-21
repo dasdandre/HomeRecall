@@ -14,11 +14,15 @@
             
             <PropertyColumn Property="x => x.Name" Title="@L["Devices_Table_Name"]" Filterable="false" />
             
-            <PropertyColumn Property="x => x.IpAddress" Title="@L["Devices_Table_IpAddress"]" Filterable="false">
+            <TemplateColumn Title="@L["Devices_Table_IpAddress"]">
                 <CellTemplate>
-                        <MudLink Href="@($"http://{context.Item.IpAddress}")" Target="_blank" Underline="Underline.Hover">@context.Item.IpAddress</MudLink>
+                    @if (context.Item.Interfaces.Any())
+                    {
+                        var ip = context.Item.Interfaces.First().IpAddress;
+                        <MudLink Href="@($"http://{ip}")" Target="_blank" Underline="Underline.Hover">@ip</MudLink>
+                    }
                 </CellTemplate>
-            </PropertyColumn>
+            </TemplateColumn>
             
             <PropertyColumn Property="x => x.Type" Title="@L["Devices_Table_Type"]">
                 <CellTemplate>

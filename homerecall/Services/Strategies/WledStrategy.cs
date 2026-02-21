@@ -17,31 +17,33 @@ public class WledStrategy : IMqttDeviceStrategy
             if (info?.Ver != null && info.Leds != null)
             {
                 string name = !string.IsNullOrWhiteSpace(info.Name) ? info.Name : $"WLED-{ip.Split('.').Last()}";
-                
-                    return new DiscoveredDevice
-                    {
-                        IpAddress = ip,
-                        Type = DeviceType.Wled,
-                        Name = name, 
-                        MacAddress = info.Mac,
-                        FirmwareVersion = info.Ver 
-                    };
-                }
+
+                return new DiscoveredDevice
+                {
+                    Type = DeviceType.Wled,
+                    Name = name,
+                    FirmwareVersion = info.Ver,
+                    Interfaces = new List<NetworkInterface> { new() { IpAddress = ip, MacAddress = info.Mac, Type = NetworkInterfaceType.Wifi } }
+                };
             }
-        catch {}
+        }
+        catch { }
         return null;
     }
 
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();
-        
-        var cfg = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/edit?download=cfg.json");
+        var ip = device.Interfaces.FirstOrDefault()?.IpAddress;
+        if (ip == null) return new DeviceBackupResult(files, string.Empty);
+
+
+        var cfg = await httpClient.GetByteArrayAsync($"http://{ip}/edit?download=cfg.json");
         files.Add(new("cfg.json", cfg));
 
         try
         {
-            var presets = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/edit?download=presets.json");
+            var presets = await httpClient.GetByteArrayAsync($"http://{ip}/edit?download=presets.json");
             files.Add(new("presets.json", presets));
         }
         catch { }
@@ -49,7 +51,7 @@ public class WledStrategy : IMqttDeviceStrategy
         string version = string.Empty;
         try
         {
-            var info = await httpClient.GetFromJsonAsync<WledInfo>($"http://{device.IpAddress}/json/info");
+            var info = await httpClient.GetFromJsonAsync<WledInfo>($"http://{ip}/json/info");
             if (info?.Ver != null) version = info.Ver;
         }
         catch { }
@@ -72,9 +74,11 @@ public class WledStrategy : IMqttDeviceStrategy
 
     public MqttDiscoveryMessage? DiscoveryMessage => null;
 
-    private class WledInfo 
-    { 
-        public string? Ver { get; set; } 
+    private class WledInfo
+    {
+
+        public string? Ver { get; set; }
+
         public string? Name { get; set; }
         public string? Mac { get; set; }
         public object? Leds { get; set; }

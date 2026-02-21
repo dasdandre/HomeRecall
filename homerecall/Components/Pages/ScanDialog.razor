@@ -67,7 +67,7 @@
                         </HeaderContent>
                         <RowTemplate>
                             <MudTd DataLabel="IP">
-                                <MudLink Href="@($"http://{context.IpAddress}")" Target="_blank" Underline="Underline.Hover">@context.IpAddress</MudLink>
+                                <MudLink Href="@($"http://{context.Interfaces.FirstOrDefault()?.IpAddress}")" Target="_blank" Underline="Underline.Hover">@context.Interfaces.FirstOrDefault()?.IpAddress</MudLink>
                             </MudTd>
                             <MudTd DataLabel="Name">
                                  <MudTextField @bind-Value="context.Name" Margin="Margin.Dense" />

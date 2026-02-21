@@ -10,17 +10,7 @@ public class Device
     [Required]
     public string Name { get; set; } = string.Empty;
 
-    [Required]
-    public string IpAddress { get; set; } = string.Empty;
-
-    public string? Hostname { get; set; }
-
-    private string? _macAddress;
-    public string? MacAddress
-    {
-        get => _macAddress;
-        set => _macAddress = HomeRecall.Utilities.NetworkUtils.NormalizeMac(value);
-    }
+    public List<NetworkInterface> Interfaces { get; set; } = new();
 
     public string? HardwareModel { get; set; }
 

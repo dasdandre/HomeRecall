@@ -1,9 +1,9 @@
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Net.Http.Json;
-using HomeRecall.Services;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
+using HomeRecall.Services;
 
 namespace HomeRecall.Services.Strategies;
 
@@ -17,25 +17,30 @@ public class ShellyStrategy : IMqttDeviceStrategy
         {
             // Gen1 uses /settings for Name, but it might be protected.
             // /shelly is public.
-            
+
             // Try /settings first (Auth might fail)
-            try 
+            try
+
             {
                 var settings = await httpClient.GetFromJsonAsync<ShellySettings>($"http://{ip}/settings");
                 if (settings?.Type != null)
                 {
-                    string name = !string.IsNullOrWhiteSpace(settings.Name) ? settings.Name : 
-                                  !string.IsNullOrWhiteSpace(settings.Device?.Hostname) ? settings.Device.Hostname : 
+                    string name = !string.IsNullOrWhiteSpace(settings.Name) ? settings.Name :
+
+                                  !string.IsNullOrWhiteSpace(settings.Device?.Hostname) ? settings.Device.Hostname :
+
                                   $"Shelly-{ip.Split('.').Last()}";
-                                  
-                    return new DiscoveredDevice 
-                    { 
-                        IpAddress = ip, 
-                        Type = DeviceType.Shelly, 
-                        Name = name, 
-                        Hostname = settings.Device?.Hostname,
-                        MacAddress = settings.Device?.Mac,
-                        FirmwareVersion = "Gen1"
+
+
+                    return new DiscoveredDevice
+                    {
+
+                        Type = DeviceType.Shelly,
+
+                        Name = name,
+
+                        FirmwareVersion = "Gen1",
+                        Interfaces = new List<NetworkInterface> { new() { IpAddress = ip, Hostname = settings.Device?.Hostname, MacAddress = settings.Device?.Mac, Type = NetworkInterfaceType.Wifi } }
                     };
                 }
             }
@@ -45,30 +50,35 @@ public class ShellyStrategy : IMqttDeviceStrategy
                 var info = await httpClient.GetFromJsonAsync<ShellyInfo>($"http://{ip}/shelly");
                 if (info?.Type != null)
                 {
-                     return new DiscoveredDevice 
-                    { 
-                        IpAddress = ip, 
-                        Type = DeviceType.Shelly, 
-                        Name = $"Shelly-Locked-{ip.Split('.').Last()}", 
-                        MacAddress = info.Mac,
-                        FirmwareVersion = "Gen1" 
+                    return new DiscoveredDevice
+                    {
+
+                        Type = DeviceType.Shelly,
+
+                        Name = $"Shelly-Locked-{ip.Split('.').Last()}",
+
+                        FirmwareVersion = "Gen1",
+                        Interfaces = new List<NetworkInterface> { new() { IpAddress = ip, MacAddress = info.Mac, Type = NetworkInterfaceType.Wifi } }
                     };
                 }
             }
         }
-        catch {}
+        catch { }
         return null;
     }
 
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
-        var data = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/settings");
+        var ip = device.Interfaces.FirstOrDefault()?.IpAddress;
+        if (ip == null) return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
+
+        var data = await httpClient.GetByteArrayAsync($"http://{ip}/settings");
         var files = new List<BackupFile> { new("settings.json", data) };
 
         string version = string.Empty;
         try
         {
-            var info = await httpClient.GetFromJsonAsync<ShellyInfo>($"http://{device.IpAddress}/shelly");
+            var info = await httpClient.GetFromJsonAsync<ShellyInfo>($"http://{ip}/shelly");
             if (info?.Fw != null) version = info.Fw;
         }
         catch { }
@@ -88,11 +98,10 @@ public class ShellyStrategy : IMqttDeviceStrategy
                 {
                     return new DiscoveredDevice
                     {
-                        IpAddress = announce.Ip,
                         Type = DeviceType.Shelly,
                         Name = $"Shelly-{announce.Ip.Split('.').Last()}",
-                        MacAddress = announce.Mac,
-                        FirmwareVersion = "Gen1"
+                        FirmwareVersion = "Gen1",
+                        Interfaces = new List<NetworkInterface> { new() { IpAddress = announce.Ip, MacAddress = announce.Mac, Type = NetworkInterfaceType.Wifi } }
                     };
                 }
             }
@@ -112,17 +121,22 @@ public class ShellyStrategy : IMqttDeviceStrategy
         [JsonPropertyName("ip")] public string? Ip { get; set; }
     }
 
-    private class ShellySettings 
-    { 
-        public string? Type { get; set; } 
+    private class ShellySettings
+    {
+
+        public string? Type { get; set; }
+
         public string? Name { get; set; }
         public ShellyDevice? Device { get; set; }
     }
     private class ShellyDevice { public string? Hostname { get; set; } public string? Mac { get; set; } }
-    
-    private class ShellyInfo 
-    { 
-        public string? Type { get; set; } 
+
+
+    private class ShellyInfo
+    {
+
+        public string? Type { get; set; }
+
         public string? Fw { get; set; }
         public string? Mac { get; set; }
     }

@@ -1,9 +1,9 @@
 namespace HomeRecall.Services.Strategies;
 
-using HomeRecall.Services;
+using System.Net.Http.Json;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
-using System.Net.Http.Json;
+using HomeRecall.Services;
 
 public class AwtrixStrategy : IDeviceStrategy
 {
@@ -31,48 +31,52 @@ public class AwtrixStrategy : IDeviceStrategy
             var response = await httpClient.GetAsync($"http://{ip}/api/stats");
             if (response.IsSuccessStatusCode)
             {
-                 var json = await response.Content.ReadAsStringAsync();
-                 if (json.Contains("\"version\"") && json.Contains("\"uid\""))
-                 {
+                var json = await response.Content.ReadAsStringAsync();
+                if (json.Contains("\"version\"") && json.Contains("\"uid\""))
+                {
                     var stats = System.Text.Json.JsonSerializer.Deserialize<AwtrixStats>(json);
 
-                     return new DiscoveredDevice 
-                     { 
-                         IpAddress = ip, 
-                         Type = DeviceType.Awtrix, 
-                         Name = stats?.uid != null ? $"Awtrix-{stats.uid}" : $"Awtrix-{ip.Split('.').Last()}",
-                         
-                         FirmwareVersion = stats?.version ?? string.Empty                          
-                     };
-                 }
+                    return new DiscoveredDevice
+                    {
+                        Type = DeviceType.Awtrix,
+                        Name = stats?.uid != null ? $"Awtrix-{stats.uid}" : $"Awtrix-{ip.Split('.').Last()}",
+
+                        FirmwareVersion = stats?.version ?? string.Empty,
+                        Interfaces = new List<NetworkInterface> { new() { IpAddress = ip, Type = NetworkInterfaceType.Wifi } }
+                    };
+                }
             }
         }
-        catch {}
+        catch { }
         return null;
     }
 
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         var files = new List<BackupFile>();
-        await ScanDirectoryAsync(device.IpAddress, "/", files, httpClient);
-        
+        var ip = device.Interfaces.FirstOrDefault()?.IpAddress;
+        if (ip == null) return new DeviceBackupResult(files, string.Empty);
+
+        await ScanDirectoryAsync(ip, "/", files, httpClient);
+
         // If files is empty, try fallback to just config.json to not break existing behavior completely
+
         if (files.Count == 0)
         {
-             try 
-             {
-                var config = await httpClient.GetByteArrayAsync($"http://{device.IpAddress}/edit?download=/config.json");
+            try
+            {
+                var config = await httpClient.GetByteArrayAsync($"http://{ip}/edit?download=/config.json");
                 files.Add(new("config.json", config));
-             }
-             catch {}
+            }
+            catch { }
         }
 
         string version = string.Empty;
-        try 
+        try
         {
-             var stats = await httpClient.GetFromJsonAsync<AwtrixStats>($"http://{device.IpAddress}/api/stats");
-             if (stats?.version != null) 
-             version = stats.version;
+            var stats = await httpClient.GetFromJsonAsync<AwtrixStats>($"http://{ip}/api/stats");
+            if (stats?.version != null)
+                version = stats.version;
         }
         catch { }
 
@@ -92,16 +96,19 @@ public class AwtrixStrategy : IDeviceStrategy
                 {
                     if (entry.Type == "file")
                     {
-                        try 
+                        try
+
                         {
                             var fileUrl = $"http://{ip}{path}{entry.Name}";
                             var data = await httpClient.GetByteArrayAsync(fileUrl);
-                            
+
                             // Store with relative path (remove leading slash)
+
                             string storedName = $"{path}{entry.Name}".TrimStart('/');
                             files.Add(new BackupFile(storedName, data));
                         }
-                        catch 
+                        catch
+
                         {
                         }
                     }
@@ -112,7 +119,8 @@ public class AwtrixStrategy : IDeviceStrategy
                 }
             }
         }
-        catch 
+        catch
+
         {
         }
     }
