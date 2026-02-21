@@ -6,7 +6,9 @@ using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
 using HomeRecall.Services;
 
-public class ShellyGen2Strategy : IDeviceStrategy
+using Makaretu.Dns;
+
+public class ShellyGen2Strategy : IDeviceStrategy, IMdnsDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.ShellyGen2;
 
@@ -169,6 +171,75 @@ public class ShellyGen2Strategy : IDeviceStrategy
 
         _logger.LogWarning($"Backup failed for all interfaces of {device.Name}.");
         return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
+    }
+
+    // IMdnsDeviceStrategy Implementation
+    public IEnumerable<string> MdnsServiceTypes => new[] { "_shelly._tcp.local" };
+
+    public DiscoveredDevice? DiscoverFromMdns(MessageEventArgs eventArgs)
+    {
+        var message = eventArgs.Message;
+
+        var ptrRecords = message.Answers.OfType<PTRRecord>().Concat(message.AdditionalRecords.OfType<PTRRecord>());
+        bool isShelly = ptrRecords.Any(ptr => ptr.DomainName.ToString().Contains("_shelly._tcp.local", StringComparison.OrdinalIgnoreCase));
+
+        if (!isShelly) return null;
+
+        var aRecord = message.Answers.OfType<ARecord>().Concat(message.AdditionalRecords.OfType<ARecord>()).FirstOrDefault();
+        if (aRecord == null) return null;
+
+        var ip = aRecord.Address.ToString();
+        var hostname = aRecord.Name.ToString().Replace(".local", "");
+        string? mac = null;
+        string? app = null;
+        string? gen = "Gen2+";
+
+        var txtRecords = message.Answers.OfType<TXTRecord>().Concat(message.AdditionalRecords.OfType<TXTRecord>());
+        foreach (var txt in txtRecords)
+        {
+            foreach (var s in txt.Strings)
+            {
+                if (s.StartsWith("mac=", StringComparison.OrdinalIgnoreCase))
+                {
+                    mac = s.Substring(4).Replace(":", "");
+                }
+                else if (s.StartsWith("app=", StringComparison.OrdinalIgnoreCase))
+                {
+                    app = s.Substring(4);
+                }
+                else if (s.StartsWith("gen=", StringComparison.OrdinalIgnoreCase))
+                {
+                    gen = "Gen" + s.Substring(4);
+                }
+            }
+        }
+
+        if (string.IsNullOrEmpty(mac))
+        {
+            var parts = hostname.Split('-');
+            if (parts.Length > 1)
+            {
+                mac = parts.Last();
+            }
+        }
+
+        var discoveredDevice = new DiscoveredDevice
+        {
+            Type = DeviceType.ShellyGen2,
+            Name = hostname,
+            FirmwareVersion = gen,
+            HardwareModel = app
+        };
+
+        discoveredDevice.Interfaces.Add(new NetworkInterface
+        {
+            IpAddress = ip,
+            Hostname = hostname,
+            MacAddress = mac ?? "",
+            Type = NetworkInterfaceType.Wifi
+        });
+
+        return discoveredDevice;
     }
 
     // JSON models

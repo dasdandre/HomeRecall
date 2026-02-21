@@ -69,6 +69,13 @@
     </MudPaper>
 
     <MudPaper Class="pa-4 mt-4">
+        <MudText Typo="Typo.h6" Class="mb-4">Local Device Discovery (mDNS)</MudText>
+        <MudSwitch @bind-Value="_settings.MdnsEnabled" Color="Color.Primary" Label="Enable mDNS Auto-Discovery" />
+        <MudText Typo="Typo.caption" Class="ml-2 d-block mb-4">Automatically discovers WLED and Shelly devices on your local network without manual IP scanning.</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveSettings">@L["Common_Save"]</MudButton>
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mt-4">
         <div class="d-flex align-center mb-4">
             <MudText Typo="Typo.h6">@L["Settings_MQTT_Title"]</MudText>
             <MudSpacer />

@@ -321,6 +321,7 @@ public class TasmotaStrategy : IMqttDeviceStrategy
 
     public MqttDiscoveryMessage? DiscoveryMessage => new("cmnd/tasmotas/STATUS", "5");
 
+
     // JSON Models
     private class TasmotaInfo
     {

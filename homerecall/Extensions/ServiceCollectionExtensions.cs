@@ -57,12 +57,18 @@ public static class ServiceCollectionExtensions
         // Domain Services
         services.AddScoped<IBackupService, BackupService>();
 
+        // Add Memory Cache for mDNS Scanner
+        services.AddMemoryCache();
+
         // Register all strategies for different device types (Tasmota, Shelly, etc.)
         services.AddDeviceStrategies();
         services.AddScoped<IDeviceScanner, DeviceScanner>();
 
         // Background Service for scheduled backups
         services.AddHostedService<BackupScheduler>();
+
+        // Background Service for mDNS Auto-Discovery
+        services.AddHostedService<MdnsScanner>();
 
         // UI Services (MudBlazor)
         services.AddMudServices();

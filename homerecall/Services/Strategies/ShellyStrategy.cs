@@ -5,9 +5,11 @@ using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
 using HomeRecall.Services;
 
+using Makaretu.Dns;
+
 namespace HomeRecall.Services.Strategies;
 
-public class ShellyStrategy : IMqttDeviceStrategy
+public class ShellyStrategy : IMqttDeviceStrategy, IMdnsDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.Shelly;
 
@@ -157,6 +159,81 @@ public class ShellyStrategy : IMqttDeviceStrategy
     public IEnumerable<string> MqttDiscoveryTopics => new[] { "shelly/+/announce" };
 
     public MqttDiscoveryMessage? DiscoveryMessage => null;
+
+    public IEnumerable<string> MdnsServiceTypes => new[] { "_http._tcp.local" };
+
+    public DiscoveredDevice? DiscoverFromMdns(MessageEventArgs eventArgs)
+    {
+        var message = eventArgs.Message;
+
+        // Verify PTR is _http._tcp.local
+        var ptrRecords = message.Answers.OfType<PTRRecord>().Concat(message.AdditionalRecords.OfType<PTRRecord>());
+        bool isHttp = ptrRecords.Any(ptr => ptr.DomainName.ToString().Contains("_http._tcp.local", StringComparison.OrdinalIgnoreCase));
+
+        if (!isHttp) return null;
+
+        var aRecord = message.Answers.OfType<ARecord>().Concat(message.AdditionalRecords.OfType<ARecord>()).FirstOrDefault();
+        if (aRecord == null) return null;
+
+        var ip = aRecord.Address.ToString();
+        var hostname = aRecord.Name.ToString().Replace(".local", "");
+
+        // Gen1 Shelly hostnames look like "shelly1-AABBCC" or "shellyix3-..."
+
+        if (!hostname.StartsWith("shelly", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        string? mac = null;
+
+        // TXT records on Gen1 rarely have MAC, but we check anyway. Gen1 usually has no 'gen2' indicator.
+        var txtRecords = message.Answers.OfType<TXTRecord>().Concat(message.AdditionalRecords.OfType<TXTRecord>());
+        foreach (var txt in txtRecords)
+        {
+            foreach (var s in txt.Strings)
+            {
+                if (s.StartsWith("mac=", StringComparison.OrdinalIgnoreCase))
+                {
+                    mac = s.Substring(4).Replace(":", "");
+                }
+                if (s.Contains("gen2", StringComparison.OrdinalIgnoreCase))
+                {
+                    // This strategy is strictly for Gen1. Gen2+ uses _shelly._tcp.local now,
+                    // but if it ever broadcasts _http with gen2, ignore it here.
+                    return null;
+                }
+            }
+        }
+
+        if (string.IsNullOrEmpty(mac))
+        {
+            // Extract from hostname e.g. shelly1-AABBCC
+            var parts = hostname.Split('-');
+            if (parts.Length > 1)
+            {
+                mac = parts.Last();
+            }
+        }
+
+        var discoveredDevice = new DiscoveredDevice
+        {
+            Type = DeviceType.Shelly,
+            Name = hostname,
+            FirmwareVersion = "Gen1"
+        };
+
+
+        discoveredDevice.Interfaces.Add(new NetworkInterface
+        {
+            IpAddress = ip,
+            Hostname = hostname,
+            MacAddress = mac ?? "",
+            Type = NetworkInterfaceType.Wifi
+        });
+
+        return discoveredDevice;
+    }
 
     private class ShellyAnnounce
     {

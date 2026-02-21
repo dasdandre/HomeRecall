@@ -3,9 +3,11 @@ using System.Text.Json;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
 
+using Makaretu.Dns;
+
 namespace HomeRecall.Services.Strategies;
 
-public class WledStrategy : IMqttDeviceStrategy
+public class WledStrategy : IMqttDeviceStrategy, IMdnsDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.Wled;
 
@@ -121,6 +123,64 @@ public class WledStrategy : IMqttDeviceStrategy
     public IEnumerable<string> MqttDiscoveryTopics => new[] { "wled/+/v" };
 
     public MqttDiscoveryMessage? DiscoveryMessage => null;
+
+    public IEnumerable<string> MdnsServiceTypes => new[] { "_wled._tcp.local" };
+
+    public DiscoveredDevice? DiscoverFromMdns(MessageEventArgs eventArgs)
+    {
+        var message = eventArgs.Message;
+
+        // Verify it's a _wled._tcp.local PTR record
+        var ptrRecords = message.Answers.OfType<PTRRecord>().Concat(message.AdditionalRecords.OfType<PTRRecord>());
+        bool isWled = ptrRecords.Any(ptr => ptr.DomainName.ToString().Contains("_wled._tcp.local", StringComparison.OrdinalIgnoreCase));
+
+        if (!isWled) return null;
+
+        var aRecord = message.Answers.OfType<ARecord>().Concat(message.AdditionalRecords.OfType<ARecord>()).FirstOrDefault();
+        if (aRecord == null) return null;
+
+        var ip = aRecord.Address.ToString();
+        var hostname = aRecord.Name.ToString().Replace(".local", "");
+        string? mac = null;
+
+        var txtRecords = message.Answers.OfType<TXTRecord>().Concat(message.AdditionalRecords.OfType<TXTRecord>());
+        foreach (var txt in txtRecords)
+        {
+            foreach (var s in txt.Strings)
+            {
+                if (s.StartsWith("mac=", StringComparison.OrdinalIgnoreCase))
+                {
+                    mac = s.Substring(4).Replace(":", ""); // Ensure clear format
+                }
+            }
+        }
+
+        if (string.IsNullOrEmpty(mac))
+        {
+            // WLED hostnames are often wled-AABBCC. Try to extract MAC
+            var parts = hostname.Split('-');
+            if (parts.Length > 1)
+            {
+                mac = parts.Last();
+            }
+        }
+
+        var discoveredDevice = new DiscoveredDevice
+        {
+            Type = DeviceType.Wled,
+            Name = hostname
+        };
+
+        discoveredDevice.Interfaces.Add(new NetworkInterface
+        {
+            IpAddress = ip,
+            Hostname = hostname,
+            MacAddress = mac ?? "", // Fallback empty if not found
+            Type = NetworkInterfaceType.Wifi
+        });
+
+        return discoveredDevice;
+    }
 
     private class WledInfo
     {
