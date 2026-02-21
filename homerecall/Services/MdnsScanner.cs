@@ -81,6 +81,15 @@ public class MdnsScanner : BackgroundService
 
         try
         {
+            if (_logger.IsEnabled(LogLevel.Trace))
+            {
+                var ptrs = e.Message.Answers.OfType<PTRRecord>()
+                    .Concat(e.Message.AdditionalRecords.OfType<PTRRecord>())
+                    .Select(p => p.DomainName.ToString());
+
+                _logger.LogTrace($"mDNS Received from {e.RemoteEndPoint}. Answers: {e.Message.Answers.Count}, Additional: {e.Message.AdditionalRecords.Count}, PTRs: {string.Join(", ", ptrs)}");
+            }
+
             DiscoveredDevice? discoveredDevice = null;
             IMdnsDeviceStrategy? matchedStrategy = null;
 
@@ -89,6 +98,7 @@ public class MdnsScanner : BackgroundService
                 discoveredDevice = strategy.DiscoverFromMdns(e);
                 if (discoveredDevice != null)
                 {
+                    _logger.LogDebug($"mDNS matched strategy '{strategy.GetType().Name}' for device '{discoveredDevice.Name}'");
                     matchedStrategy = strategy;
                     break;
                 }
@@ -96,6 +106,10 @@ public class MdnsScanner : BackgroundService
 
             if (discoveredDevice == null || discoveredDevice.Interfaces.Count == 0 || matchedStrategy == null)
             {
+                if (_logger.IsEnabled(LogLevel.Trace) && e.Message.Answers.Count > 0)
+                {
+                    _logger.LogTrace("mDNS message ignored: No matching strategy or incomplete device info.");
+                }
                 return;
             }
 
