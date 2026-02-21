@@ -103,7 +103,7 @@ public class DeviceScanner : IDeviceScanner
 
     private HttpClient CreateClient()
     {
-        var client = _httpClientFactory.CreateClient();
+        var client = _httpClientFactory.CreateClient("DeviceScanner");
         client.Timeout = TimeSpan.FromSeconds(3);
         return client;
     }

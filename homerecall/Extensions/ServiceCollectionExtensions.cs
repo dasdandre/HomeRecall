@@ -45,8 +45,11 @@ public static class ServiceCollectionExtensions
         // Add Controllers for API endpoints (e.g. DownloadBackupController)
         services.AddControllers();
 
-        // Add HttpClient for making network requests to devices
+        // Add default HttpClient for making network requests to devices
         services.AddHttpClient();
+
+        // Add specialized HttpClient for Device Scanner to allow log filtering
+        services.AddHttpClient("DeviceScanner");
 
         // Add Localization support (ResourcesPath = "Resources")
         services.AddLocalization(options => options.ResourcesPath = "Resources");
@@ -117,15 +120,37 @@ public static class ServiceCollectionExtensions
             }
         }
 
+        LogLevel minLevel = LogLevel.Information;
+        switch (haLogLevel)
+        {
+            case "trace": minLevel = LogLevel.Trace; break;
+            case "debug": minLevel = LogLevel.Debug; break;
+            case "warning": minLevel = LogLevel.Warning; break;
+            case "error": minLevel = LogLevel.Error; break;
+            case "critical": minLevel = LogLevel.Critical; break;
+            case "none": minLevel = LogLevel.None; break;
+            default: minLevel = LogLevel.Information; break;
+        }
+
+        logging.SetMinimumLevel(minLevel);
+
         // Configure EF Core logging based on Addon log_level
         logging.AddFilter((category, level) =>
         {
             if (category == "Microsoft.EntityFrameworkCore.Database.Command" && level == LogLevel.Information)
             {
                 // Only show DB command logs if HA log_level is debug or trace
-                return haLogLevel == "debug" || haLogLevel == "trace";
+                return minLevel <= LogLevel.Debug;
             }
-            return true;
+
+            if (category != null && category.StartsWith("System.Net.Http.HttpClient.DeviceScanner"))
+            {
+                // Suppress the flood of endpoint unreachable errors during IP Scans
+                // normally logged by the HttpClientFactory's logging handler.
+                return minLevel <= LogLevel.Trace;
+            }
+
+            return level >= minLevel;
         });
     }
 }

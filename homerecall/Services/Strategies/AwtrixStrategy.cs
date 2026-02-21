@@ -9,6 +9,13 @@ public class AwtrixStrategy : IDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.Awtrix;
 
+    private readonly ILogger<AwtrixStrategy> _logger;
+
+    public AwtrixStrategy(ILogger<AwtrixStrategy> logger)
+    {
+        _logger = logger;
+    }
+
     private class AwtrixStats
     {
         public string? version { get; set; }
@@ -53,34 +60,73 @@ public class AwtrixStrategy : IDeviceStrategy
 
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
-        var files = new List<BackupFile>();
-        var ip = device.Interfaces.FirstOrDefault()?.IpAddress;
-        if (ip == null) return new DeviceBackupResult(files, string.Empty);
-
-        await ScanDirectoryAsync(ip, "/", files, httpClient);
-
-        // If files is empty, try fallback to just config.json to not break existing behavior completely
-
-        if (files.Count == 0)
+        if (device.Interfaces == null || device.Interfaces.Count == 0)
         {
+            _logger.LogWarning($"No interfaces found for {device.Name} during backup.");
+            return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
+        }
+
+        var interfacesToTry = device.Interfaces
+            .OrderByDescending(i => i.Type == NetworkInterfaceType.Ethernet)
+            .ToList();
+
+        _logger.LogDebug($"Attempting backup for {device.Name} across {interfacesToTry.Count} interfaces. Preference: Ethernet first.");
+
+        foreach (var netInterface in interfacesToTry)
+        {
+            var ip = netInterface.IpAddress;
+            if (string.IsNullOrEmpty(ip)) continue;
+
+            _logger.LogTrace($"Trying to backup {device.Name} using interface IP {ip} ({netInterface.Type})...");
+
             try
             {
-                var config = await httpClient.GetByteArrayAsync($"http://{ip}/edit?download=/config.json");
-                files.Add(new("config.json", config));
+                var files = new List<BackupFile>();
+                await ScanDirectoryAsync(ip, "/", files, httpClient);
+
+                if (files.Count == 0)
+                {
+                    _logger.LogTrace($"ScanDirectoryAsync yielded no files. Trying fallback to /config.json for {device.Name} at {ip}.");
+                    var config = await httpClient.GetByteArrayAsync($"http://{ip}/edit?download=/config.json");
+                    files.Add(new("config.json", config));
+                }
+
+                if (files.Count > 0)
+                {
+                    _logger.LogTrace($"Successfully retrieved {files.Count} files from {ip} for {device.Name}.");
+                }
+                else
+                {
+                    throw new Exception("No files could be retrieved from device.");
+                }
+
+                string version = string.Empty;
+                try
+                {
+                    var stats = await httpClient.GetFromJsonAsync<AwtrixStats>($"http://{ip}/api/stats");
+                    if (stats?.version != null)
+                    {
+                        version = stats.version;
+                        _logger.LogTrace($"Retrieved firmware version {version} from {ip}.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, $"Could not retrieve firmware version from {ip} for {device.Name}.");
+                }
+
+                _logger.LogDebug($"Backup for {device.Name} succeeded using interface IP {ip} ({netInterface.Type}).");
+                return new DeviceBackupResult(files, version);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, $"Backup failed for {device.Name} on interface IP {ip} ({netInterface.Type}). Falling back to next interface if available...");
+                continue;
+            }
         }
 
-        string version = string.Empty;
-        try
-        {
-            var stats = await httpClient.GetFromJsonAsync<AwtrixStats>($"http://{ip}/api/stats");
-            if (stats?.version != null)
-                version = stats.version;
-        }
-        catch { }
-
-        return new DeviceBackupResult(files, version);
+        _logger.LogWarning($"Backup failed for all interfaces of {device.Name}.");
+        return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
     }
 
     private async Task ScanDirectoryAsync(string ip, string path, List<BackupFile> files, HttpClient httpClient)

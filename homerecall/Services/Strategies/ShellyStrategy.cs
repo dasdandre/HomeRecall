@@ -11,6 +11,13 @@ public class ShellyStrategy : IMqttDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.Shelly;
 
+    private readonly ILogger<ShellyStrategy> _logger;
+
+    public ShellyStrategy(ILogger<ShellyStrategy> logger)
+    {
+        _logger = logger;
+    }
+
     public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
@@ -69,21 +76,58 @@ public class ShellyStrategy : IMqttDeviceStrategy
 
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
-        var ip = device.Interfaces.FirstOrDefault()?.IpAddress;
-        if (ip == null) return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
-
-        var data = await httpClient.GetByteArrayAsync($"http://{ip}/settings");
-        var files = new List<BackupFile> { new("settings.json", data) };
-
-        string version = string.Empty;
-        try
+        if (device.Interfaces == null || device.Interfaces.Count == 0)
         {
-            var info = await httpClient.GetFromJsonAsync<ShellyInfo>($"http://{ip}/shelly");
-            if (info?.Fw != null) version = info.Fw;
+            _logger.LogWarning($"No interfaces found for {device.Name} during backup.");
+            return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
         }
-        catch { }
 
-        return new DeviceBackupResult(files, version);
+        var interfacesToTry = device.Interfaces
+            .OrderByDescending(i => i.Type == NetworkInterfaceType.Ethernet)
+            .ToList();
+
+        _logger.LogDebug($"Attempting backup for {device.Name} across {interfacesToTry.Count} interfaces. Preference: Ethernet first.");
+
+        foreach (var netInterface in interfacesToTry)
+        {
+            var ip = netInterface.IpAddress;
+            if (string.IsNullOrEmpty(ip)) continue;
+
+            _logger.LogTrace($"Trying to backup {device.Name} using interface IP {ip} ({netInterface.Type})...");
+
+            try
+            {
+                var data = await httpClient.GetByteArrayAsync($"http://{ip}/settings");
+                var files = new List<BackupFile> { new("settings.json", data) };
+                _logger.LogTrace($"Successfully downloaded settings.json from {ip} for {device.Name}.");
+
+                string version = string.Empty;
+                try
+                {
+                    var info = await httpClient.GetFromJsonAsync<ShellyInfo>($"http://{ip}/shelly");
+                    if (info?.Fw != null)
+                    {
+                        version = info.Fw;
+                        _logger.LogTrace($"Retrieved firmware version {version} from {ip}.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, $"Could not retrieve firmware version from {ip} for {device.Name}.");
+                }
+
+                _logger.LogDebug($"Backup for {device.Name} succeeded using interface IP {ip} ({netInterface.Type}).");
+                return new DeviceBackupResult(files, version);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, $"Backup failed for {device.Name} on interface IP {ip} ({netInterface.Type}). Falling back to next interface if available...");
+                continue;
+            }
+        }
+
+        _logger.LogWarning($"Backup failed for all interfaces of {device.Name}.");
+        return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
     }
 
     public DiscoveredDevice? DiscoverFromMqtt(string topic, string payload)

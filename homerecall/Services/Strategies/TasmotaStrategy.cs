@@ -11,6 +11,13 @@ public class TasmotaStrategy : IMqttDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.Tasmota;
 
+    private readonly ILogger<TasmotaStrategy> _logger;
+
+    public TasmotaStrategy(ILogger<TasmotaStrategy> logger)
+    {
+        _logger = logger;
+    }
+
     public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
@@ -160,22 +167,32 @@ public class TasmotaStrategy : IMqttDeviceStrategy
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
         if (device.Interfaces == null || device.Interfaces.Count == 0)
+        {
+            _logger.LogWarning($"No interfaces found for {device.Name} during backup.");
             return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
+        }
 
         // Prefer Ethernet first, then fallback to others
         var interfacesToTry = device.Interfaces
             .OrderByDescending(i => i.Type == NetworkInterfaceType.Ethernet)
             .ToList();
 
+        _logger.LogDebug($"Attempting backup for {device.Name} across {interfacesToTry.Count} interfaces. Preference: Ethernet first.");
+
         foreach (var netInterface in interfacesToTry)
         {
             var ip = netInterface.IpAddress;
             if (string.IsNullOrEmpty(ip)) continue;
 
+            _logger.LogTrace($"Trying to backup {device.Name} using interface IP {ip} ({netInterface.Type})...");
+
             try
             {
                 var data = await httpClient.GetByteArrayAsync($"http://{ip}/dl");
                 var files = new List<BackupFile> { new("Config.dmp", data) };
+
+
+                _logger.LogTrace($"Successfully downloaded Config.dmp from {ip} for {device.Name}.");
 
                 string version = string.Empty;
                 try
@@ -184,21 +201,28 @@ public class TasmotaStrategy : IMqttDeviceStrategy
                     if (statusJson?.StatusFWR?.Version != null)
                     {
                         version = statusJson.StatusFWR.Version;
+                        _logger.LogTrace($"Retrieved firmware version {version} from {ip}.");
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, $"Could not retrieve firmware version from {ip} for {device.Name}.");
+                }
 
                 // If we reach here, backup succeeded on this interface
+                _logger.LogDebug($"Backup for {device.Name} succeeded using interface IP {ip} ({netInterface.Type}).");
                 return new DeviceBackupResult(files, version);
             }
-            catch
+            catch (Exception ex)
             {
                 // Failed on this interface, continue to the next one
+                _logger.LogDebug(ex, $"Backup failed for {device.Name} on interface IP {ip} ({netInterface.Type}). Falling back to next interface if available...");
                 continue;
             }
         }
 
         // Return empty result if all interfaces failed
+        _logger.LogWarning($"Backup failed for all interfaces of {device.Name}.");
         return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
     }
 

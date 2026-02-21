@@ -1,10 +1,10 @@
-using System.Text;
-using System.Security.Cryptography;
 using System.IO.Compression;
-using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 using HomeRecall.Persistence;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Services.Strategies;
+using Microsoft.EntityFrameworkCore;
 
 namespace HomeRecall.Services;
 
@@ -22,8 +22,10 @@ public class BackupService : IBackupService
     private readonly string _backupDirectory;
 
     public BackupService(
-        BackupContext context, 
-        IHttpClientFactory httpClientFactory, 
+        BackupContext context,
+
+        IHttpClientFactory httpClientFactory,
+
         ILogger<BackupService> logger,
         IEnumerable<IDeviceStrategy> strategies)
     {
@@ -42,8 +44,14 @@ public class BackupService : IBackupService
 
     public async Task PerformBackupAsync(int deviceId)
     {
+        _logger.LogTrace($"PerformBackupAsync called for deviceId {deviceId}");
         var device = await _context.Devices.FindAsync(deviceId);
-        if (device == null) return;
+        if (device == null)
+
+        {
+            _logger.LogWarning($"PerformBackupAsync aborted: Device with ID {deviceId} not found.");
+            return;
+        }
 
         try
         {
@@ -56,9 +64,13 @@ public class BackupService : IBackupService
                 return;
             }
 
+            _logger.LogTrace($"Using strategy {strategy.GetType().Name} for {device.Name}.");
+
             var httpClient = _httpClientFactory.CreateClient();
             httpClient.Timeout = TimeSpan.FromSeconds(30);
-            
+
+
+            _logger.LogTrace($"Executing strategy.BackupAsync for {device.Name}...");
             var result = await strategy.BackupAsync(device, httpClient);
 
             if (result == null || result.Files == null || result.Files.Count == 0)
@@ -67,24 +79,32 @@ public class BackupService : IBackupService
                 return;
             }
 
+            _logger.LogDebug($"Received {result.Files.Count} files from strategy for {device.Name}.");
+
             if (!string.IsNullOrEmpty(result.FirmwareVersion))
             {
+                _logger.LogTrace($"Updating firmware version to {result.FirmwareVersion} for {device.Name}.");
                 device.CurrentFirmwareVersion = result.FirmwareVersion;
             }
 
             // 2. Sort files by name for determinism
+            _logger.LogTrace($"Sorting backup files for {device.Name}.");
             var sortedFiles = result.Files.OrderBy(f => f.Name).ToList();
 
             // 3. Compute SHA1 based on raw content (Config Hash)
             // This ensures deduplication is based on the actual config, not the ZIP binary.
+            _logger.LogTrace($"Computing checksum for {device.Name} backup files.");
             string checksum = CalculateContentHash(sortedFiles);
+            _logger.LogDebug($"Computed checksum: {checksum}");
 
             // 4. Create ZIP in memory
+            _logger.LogTrace($"Compressing files into memory ZIP archive for {device.Name}.");
             using var memoryStream = new MemoryStream();
             using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
             {
                 foreach (var file in sortedFiles)
                 {
+                    _logger.LogTrace($"Adding file to zip: {file.Name}");
                     var entry = archive.CreateEntry(file.Name);
                     // Fixed timestamp for additional ZIP-level determinism
                     entry.LastWriteTime = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -96,6 +116,7 @@ public class BackupService : IBackupService
 
             memoryStream.Position = 0;
             byte[] zipBytes = memoryStream.ToArray();
+            _logger.LogDebug($"ZIP created successfully. Size: {zipBytes.Length} bytes.");
 
             // 5. Deduplication & Storage Logic
             // Check if the LAST backup of THIS device has the same content.
@@ -112,7 +133,8 @@ public class BackupService : IBackupService
                 // Content is identical to the last backup. Reuse the existing file.
                 storageFileName = lastBackup.StoragePath;
                 contentChanged = false;
-                
+
+
                 _logger.LogInformation($"Content unchanged for {device.Name}. Reusing file: {storageFileName}");
 
                 // Resilience: If the user manually deleted the file, recreate it to be safe.
@@ -127,8 +149,9 @@ public class BackupService : IBackupService
                 // Content changed (or first backup). Create new file.
                 string safeName = string.Join("_", device.Name.Split(Path.GetInvalidFileNameChars())).Replace(" ", "_");
                 string dateStr = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-                
+
                 // Format: Date_Name_Type_Hash.zip
+
                 storageFileName = $"{dateStr}_{safeName}_{device.Type}_{checksum[..8]}.zip";
                 string storagePath = Path.Combine(_backupDirectory, storageFileName);
 
@@ -136,6 +159,7 @@ public class BackupService : IBackupService
             }
 
             // Create History Entry
+            _logger.LogTrace($"Recording backup history in database for {device.Name}.");
             var backup = new Backup
             {
                 DeviceId = device.Id,
@@ -162,9 +186,10 @@ public class BackupService : IBackupService
             // Increment failures
             device.BackupFailures++;
             await _context.SaveChangesAsync();
-            
+
             // Rethrow so UI can show error
-            throw; 
+            throw;
+
         }
     }
 

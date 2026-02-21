@@ -10,6 +10,13 @@ public class ShellyGen2Strategy : IDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.ShellyGen2;
 
+    private readonly ILogger<ShellyGen2Strategy> _logger;
+
+    public ShellyGen2Strategy(ILogger<ShellyGen2Strategy> logger)
+    {
+        _logger = logger;
+    }
+
     public async Task<DiscoveredDevice?> ProbeAsync(string ip, HttpClient httpClient)
     {
         try
@@ -44,81 +51,124 @@ public class ShellyGen2Strategy : IDeviceStrategy
 
     public async Task<DeviceBackupResult> BackupAsync(Device device, HttpClient httpClient)
     {
-        var ip = device.Interfaces.FirstOrDefault()?.IpAddress;
-        if (ip == null) return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
-
-        var data = await httpClient.GetByteArrayAsync($"http://{ip}/rpc/Shelly.GetConfig");
-        var files = new List<BackupFile> { new("config.json", data) };
-
-        try
+        if (device.Interfaces == null || device.Interfaces.Count == 0)
         {
-            var scriptList = await httpClient.GetFromJsonAsync<ShellyScriptListResponse>($"http://{ip}/rpc/Script.List");
-            if (scriptList?.Scripts != null)
+            _logger.LogWarning($"No interfaces found for {device.Name} during backup.");
+            return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
+        }
+
+        var interfacesToTry = device.Interfaces
+            .OrderByDescending(i => i.Type == NetworkInterfaceType.Ethernet)
+            .ToList();
+
+        _logger.LogDebug($"Attempting backup for {device.Name} across {interfacesToTry.Count} interfaces. Preference: Ethernet first.");
+
+        foreach (var netInterface in interfacesToTry)
+        {
+            var ip = netInterface.IpAddress;
+            if (string.IsNullOrEmpty(ip)) continue;
+
+            _logger.LogTrace($"Trying to backup {device.Name} using interface IP {ip} ({netInterface.Type})...");
+
+            try
             {
-                foreach (var script in scriptList.Scripts)
+                var data = await httpClient.GetByteArrayAsync($"http://{ip}/rpc/Shelly.GetConfig");
+                var files = new List<BackupFile> { new("config.json", data) };
+                _logger.LogTrace($"Successfully downloaded config.json from {ip} for {device.Name}.");
+
+                try
                 {
-                    try
+                    var scriptList = await httpClient.GetFromJsonAsync<ShellyScriptListResponse>($"http://{ip}/rpc/Script.List");
+                    if (scriptList?.Scripts != null)
                     {
-                        var sb = new System.Text.StringBuilder();
-                        int offset = 0;
-                        while (true)
+                        foreach (var script in scriptList.Scripts)
                         {
-                            var codeResp = await httpClient.GetFromJsonAsync<ShellyScriptCodeResponse>(
-                                $"http://{ip}/rpc/Script.GetCode?id={script.Id}&offset={offset}");
-
-                            if (codeResp?.Data != null)
+                            try
                             {
-                                sb.Append(codeResp.Data);
-                                offset += System.Text.Encoding.UTF8.GetByteCount(codeResp.Data);
-                            }
-
-                            if (codeResp == null || codeResp.Remaining <= 0) break;
-                        }
-
-                        if (sb.Length > 0)
-                        {
-                            string safeName = script.Name ?? "";
-                            if (string.IsNullOrWhiteSpace(safeName))
-                            {
-                                safeName = $"script_{script.Id}";
-                            }
-                            else
-                            {
-                                foreach (var c in Path.GetInvalidFileNameChars())
+                                var sb = new System.Text.StringBuilder();
+                                int offset = 0;
+                                while (true)
                                 {
-                                    safeName = safeName.Replace(c, '_');
+                                    var codeResp = await httpClient.GetFromJsonAsync<ShellyScriptCodeResponse>(
+                                        $"http://{ip}/rpc/Script.GetCode?id={script.Id}&offset={offset}");
+
+                                    if (codeResp?.Data != null)
+                                    {
+                                        sb.Append(codeResp.Data);
+                                        offset += System.Text.Encoding.UTF8.GetByteCount(codeResp.Data);
+                                    }
+
+                                    if (codeResp == null || codeResp.Remaining <= 0) break;
+                                }
+
+                                if (sb.Length > 0)
+                                {
+                                    string safeName = script.Name ?? "";
+                                    if (string.IsNullOrWhiteSpace(safeName))
+                                    {
+                                        safeName = $"script_{script.Id}";
+                                    }
+                                    else
+                                    {
+                                        foreach (var c in Path.GetInvalidFileNameChars())
+                                        {
+                                            safeName = safeName.Replace(c, '_');
+                                        }
+                                    }
+
+                                    if (!safeName.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
+                                        safeName += ".js";
+
+                                    string finalName = $"scripts/{safeName}";
+                                    // Ensure uniqueness
+                                    if (files.Any(f => f.Name.Equals(finalName, StringComparison.OrdinalIgnoreCase)))
+                                    {
+                                        finalName = $"scripts/{Path.GetFileNameWithoutExtension(safeName)}_{script.Id}.js";
+                                    }
+
+                                    files.Add(new BackupFile(finalName, System.Text.Encoding.UTF8.GetBytes(sb.ToString())));
+                                    _logger.LogTrace($"Successfully downloaded script {finalName} from {ip}.");
                                 }
                             }
-
-                            if (!safeName.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
-                                safeName += ".js";
-
-                            string finalName = $"scripts/{safeName}";
-                            // Ensure uniqueness
-                            if (files.Any(f => f.Name.Equals(finalName, StringComparison.OrdinalIgnoreCase)))
+                            catch (Exception ex)
                             {
-                                finalName = $"scripts/{Path.GetFileNameWithoutExtension(safeName)}_{script.Id}.js";
+                                _logger.LogDebug(ex, $"Failed to download script {script.Id} from {ip}.");
                             }
-
-                            files.Add(new BackupFile(finalName, System.Text.Encoding.UTF8.GetBytes(sb.ToString())));
                         }
                     }
-                    catch { }
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, $"Could not retrieve scripts list from {ip} for {device.Name}.");
+                }
+
+                string version = string.Empty;
+                try
+                {
+                    var deviceInfo = await httpClient.GetFromJsonAsync<ShellyDeviceInfo>($"http://{ip}/rpc/Shelly.GetDeviceInfo");
+                    if (deviceInfo?.Ver != null) version = deviceInfo.Ver;
+                    else if (deviceInfo?.FwId != null) version = deviceInfo.FwId;
+
+
+                    _logger.LogTrace($"Retrieved firmware version {version} from {ip}.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, $"Could not retrieve firmware version from {ip} for {device.Name}.");
+                }
+
+                _logger.LogDebug($"Backup for {device.Name} succeeded using interface IP {ip} ({netInterface.Type}).");
+                return new DeviceBackupResult(files, version);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, $"Backup failed for {device.Name} on interface IP {ip} ({netInterface.Type}). Falling back to next interface if available...");
+                continue;
             }
         }
-        catch { }
 
-        string version = string.Empty;
-        try
-        {
-            var deviceInfo = await httpClient.GetFromJsonAsync<ShellyDeviceInfo>($"http://{ip}/rpc/Shelly.GetDeviceInfo");
-            if (deviceInfo?.Ver != null) version = deviceInfo.Ver;
-            else if (deviceInfo?.FwId != null) version = deviceInfo.FwId;
-        }
-        catch { }
-
-        return new DeviceBackupResult(files, version);
+        _logger.LogWarning($"Backup failed for all interfaces of {device.Name}.");
+        return new DeviceBackupResult(new List<BackupFile>(), string.Empty);
     }
 
     // JSON models
