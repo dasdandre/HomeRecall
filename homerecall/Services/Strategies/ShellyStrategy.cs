@@ -1,10 +1,10 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
 using HomeRecall.Services;
-
 using Makaretu.Dns;
 
 namespace HomeRecall.Services.Strategies;
@@ -175,11 +175,11 @@ public class ShellyStrategy : IMqttDeviceStrategy, IMdnsDeviceStrategy
         var aRecord = message.Answers.OfType<ARecord>().Concat(message.AdditionalRecords.OfType<ARecord>()).FirstOrDefault();
         if (aRecord == null) return null;
 
-        var ip = aRecord.Address.ToString();
-        var hostname = aRecord.Name.ToString().Replace(".local", "");
+        string ip = aRecord.Address.ToString();
+        string hostname = aRecord.Name.ToString().Replace(".local", "");
 
         // Gen1 Shelly hostnames look like "shelly1-AABBCC" or "shellyix3-..."
-
+        // this is not true for all devices
         if (!hostname.StartsWith("shelly", StringComparison.OrdinalIgnoreCase))
         {
             return null;
@@ -197,10 +197,13 @@ public class ShellyStrategy : IMqttDeviceStrategy, IMdnsDeviceStrategy
                 {
                     mac = s.Substring(4).Replace(":", "");
                 }
-                if (s.Contains("gen2", StringComparison.OrdinalIgnoreCase))
+                // Gen2+ devices use _shelly._tcp.local now, 
+                // but if they broadcast _http with gen=2 or gen=3 (i've added gen=4 too just in case)
+                if (s.Contains("gen=2", StringComparison.OrdinalIgnoreCase) ||
+                    s.Contains("gen=3", StringComparison.OrdinalIgnoreCase) ||
+                    s.Contains("gen=4", StringComparison.OrdinalIgnoreCase))
                 {
-                    // This strategy is strictly for Gen1. Gen2+ uses _shelly._tcp.local now,
-                    // but if it ever broadcasts _http with gen2, ignore it here.
+                    // This strategy is strictly for Gen1.
                     return null;
                 }
             }

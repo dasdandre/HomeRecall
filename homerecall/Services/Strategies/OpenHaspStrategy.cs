@@ -4,10 +4,11 @@ using System.Text.Json.Serialization;
 using HomeRecall.Persistence.Entities;
 using HomeRecall.Persistence.Enums;
 using HomeRecall.Services;
+using Makaretu.Dns;
 
 namespace HomeRecall.Services.Strategies;
 
-public class OpenHaspStrategy : IMqttDeviceStrategy
+public class OpenHaspStrategy : IMqttDeviceStrategy, IMdnsDeviceStrategy
 {
     public DeviceType SupportedType => DeviceType.OpenHasp;
 
@@ -148,6 +149,70 @@ public class OpenHaspStrategy : IMqttDeviceStrategy
             }
             catch { }
         }
+        return null;
+    }
+
+    public IEnumerable<string> MdnsServiceTypes => new[] { "_http._tcp.local" };
+
+    public DiscoveredDevice? DiscoverFromMdns(MessageEventArgs e)
+    {
+        var txtRecords = e.Message.Answers.OfType<TXTRecord>()
+            .Concat(e.Message.AdditionalRecords.OfType<TXTRecord>());
+
+        string? appName = null;
+        string? appVersion = null;
+
+        foreach (var txt in txtRecords)
+        {
+            foreach (var s in txt.Strings)
+            {
+                if (s.StartsWith("app_name=", StringComparison.OrdinalIgnoreCase))
+                {
+                    appName = s.Substring(9);
+                }
+                else if (s.StartsWith("app_version=", StringComparison.OrdinalIgnoreCase))
+                {
+                    appVersion = s.Substring(12);
+                }
+            }
+        }
+
+        if (appName != null && appName.Contains("openHASP", StringComparison.OrdinalIgnoreCase))
+        {
+            var aRecord = e.Message.Answers.OfType<ARecord>()
+                .Concat(e.Message.AdditionalRecords.OfType<ARecord>())
+                .FirstOrDefault();
+
+            var ptrRecord = e.Message.Answers.OfType<PTRRecord>()
+                .Concat(e.Message.AdditionalRecords.OfType<PTRRecord>())
+                .FirstOrDefault();
+
+            var ip = aRecord?.Address?.ToString();
+
+
+            string name = "OpenHasp Device";
+            if (ptrRecord != null && ptrRecord.DomainName != null)
+            {
+                var parts = ptrRecord.DomainName.ToString().Split('.');
+                if (parts.Length > 0)
+                {
+                    name = parts[0];
+                }
+            }
+            else if (!string.IsNullOrEmpty(ip))
+            {
+                name = $"OpenHasp-{ip.Split('.').Last()}";
+            }
+
+            return new DiscoveredDevice
+            {
+                Type = DeviceType.OpenHasp,
+                Name = name,
+                FirmwareVersion = appVersion ?? "",
+                Interfaces = new List<NetworkInterface> { new() { IpAddress = ip, Type = NetworkInterfaceType.Wifi } }
+            };
+        }
+
         return null;
     }
 

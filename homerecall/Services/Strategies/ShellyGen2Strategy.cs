@@ -216,11 +216,19 @@ public class ShellyGen2Strategy : IDeviceStrategy, IMdnsDeviceStrategy
 
         if (string.IsNullOrEmpty(mac))
         {
-            var parts = hostname.Split('-');
-            if (parts.Length > 1)
+            var match = System.Text.RegularExpressions.Regex.Match(hostname, @"-([a-fA-F0-9]{12})$");
+            if (match.Success)
             {
-                mac = parts.Last();
+                mac = match.Groups[1].Value;
             }
+        }
+
+        // If we still don't have a MAC address, this is likely the "Custom Hostname"
+        // duplicate broadcast without MAC info. We can safely ignore it, as the device
+        // will ALSO broadcast its shelly-mac hostname, which we will use to discover it.
+        if (string.IsNullOrEmpty(mac))
+        {
+            return null;
         }
 
         var discoveredDevice = new DiscoveredDevice
@@ -235,7 +243,7 @@ public class ShellyGen2Strategy : IDeviceStrategy, IMdnsDeviceStrategy
         {
             IpAddress = ip,
             Hostname = hostname,
-            MacAddress = mac ?? "",
+            MacAddress = mac,
             Type = NetworkInterfaceType.Wifi
         });
 

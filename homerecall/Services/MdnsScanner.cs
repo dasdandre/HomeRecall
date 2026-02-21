@@ -21,12 +21,12 @@ public class MdnsScanner : BackgroundService
     public MdnsScanner(
         ILogger<MdnsScanner> logger,
         IServiceScopeFactory scopeFactory,
-        IEnumerable<IMdnsDeviceStrategy> strategies,
+        IEnumerable<IDeviceStrategy> strategies,
         IMemoryCache cache)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
-        _strategies = strategies;
+        _strategies = strategies.OfType<IMdnsDeviceStrategy>();
         _cache = cache;
     }
 
@@ -42,6 +42,8 @@ public class MdnsScanner : BackgroundService
             _mdns.Start();
             _logger.LogInformation("mDNS MulticastService started successfully.");
 
+            DateTime lastActiveSweep = DateTime.MinValue;
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 // Verify if mDNS is currently enabled in settings (check every 15s to react to UI changes)
@@ -55,6 +57,27 @@ public class MdnsScanner : BackgroundService
                         var newState = settings.MdnsEnabled ? "enabled" : "disabled";
                         _logger.LogInformation($"mDNS Discovery toggled from {oldState} to {newState}.");
                         _mdnsEnabled = settings.MdnsEnabled;
+                    }
+                }
+
+                // If enabled, send an active query sweep every 5 minutes to proactively find devices
+                if (_mdnsEnabled && (DateTime.UtcNow - lastActiveSweep).TotalMinutes >= 5)
+                {
+                    lastActiveSweep = DateTime.UtcNow;
+                    _logger.LogTrace("Sending active mDNS query sweep...");
+                    foreach (var strategy in _strategies)
+                    {
+                        foreach (var serviceType in strategy.MdnsServiceTypes)
+                        {
+                            try
+                            {
+                                _mdns?.SendQuery(serviceType);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogTrace(ex, $"Failed to send mDNS query for type {serviceType}");
+                            }
+                        }
                     }
                 }
 
@@ -132,6 +155,31 @@ public class MdnsScanner : BackgroundService
 
             using var scope = _scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<BackupContext>();
+            var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+
+            // Attempt to fetch full details actively via ProbeAsync
+            try
+            {
+                var httpClient = httpClientFactory.CreateClient("DeviceScanner");
+                httpClient.Timeout = TimeSpan.FromSeconds(5);
+                var probedDevice = await matchedStrategy.ProbeAsync(netInterface.IpAddress, httpClient);
+
+                if (probedDevice != null && probedDevice.Interfaces.Count > 0)
+                {
+                    _logger.LogTrace($"mDNS active probe succeeded for {netInterface.IpAddress}. Overwriting mDNS partial info.");
+                    discoveredDevice = probedDevice;
+                    var probedInterface = discoveredDevice.Interfaces.First();
+                    if (string.IsNullOrEmpty(probedInterface.IpAddress))
+                    {
+                        probedInterface.IpAddress = netInterface.IpAddress;
+                    }
+                    netInterface = probedInterface;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to actively probe mDNS device at {IpAddress}, falling back to mDNS info.", netInterface.IpAddress);
+            }
 
             // Search for existing device
             Device? existingDevice = null;
