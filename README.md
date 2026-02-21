@@ -39,7 +39,7 @@ HomeRecall supports configuration backup for a variety of popular firmware and d
 *   **Auto-Detection:** Automatically identifies device types, firmware versions, and hardware models (e.g., distinguishing a "Sonoff Basic" from a generic Tasmota device).
 *   **Live Feedback:** Real-time visibility of found devices during the scan process.
 *   **Multi-Interface Support:** Discovers and tracks devices with multiple network interfaces (e.g. Wi-Fi and Ethernet) and intelligently switches interfaces during backup if one fails.
-*   **MQTT Auto-Discovery:** Automatically detects and adds devices announcing themselves on your MQTT broker (supports Tasmota for now).
+*   **MQTT Auto-Discovery:** Automatically detects and adds devices announcing themselves on your MQTT broker (supports Tasmota for now). If a device's IP address changes, HomeRecall updates it automatically by tracking its MAC address.
 
 ### 🛠 Integration & Deployment
 *   **Home Assistant:** First-class citizen support via Add-on. Supports **Ingress** for seamless UI integration 
