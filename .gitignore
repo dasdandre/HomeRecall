@@ -56,5 +56,7 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+
 .agents/rules/devenv.md
 .agents/workflows/testwf.md
