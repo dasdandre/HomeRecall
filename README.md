@@ -6,7 +6,7 @@
 ![Docker](https://img.shields.io/badge/Container-Docker-2496ed?style=flat-square&logo=docker)
 ![AI Assisted](https://img.shields.io/badge/🤖%20AI-Co--Authored-success?style=flat-square)
 
-> **Development Status**: This project is in an early development phase. While functional, it is not yet recommended for critical production environments without supervision.
+> **Development Status**: This project is in an early development phase.
 
 **HomeRecall** is a centralized backup solution for Smart Home IoT devices. It is engineered to run natively as a **Home Assistant Add-on** (supporting Ingress and auto-theming) but operates equally well as a standalone container or .NET application.
 
@@ -18,14 +18,14 @@ Its primary goal is to ensure configuration persistence for a wide range of DIY 
 
 ### 🔌 Device Support
 HomeRecall supports configuration backup for a variety of popular firmware and devices:
-*   **Tasmota** 
-*   **Shelly** (Gen 1, Gen 2/3 Plus/Pro)
-*   **WLED**
-*   **Awtrix Light**
-*   **openHASP** (tested with 0.63)
-*   **OpenDTU** (untested alpha)
+*   **Tasmota:** Backs up the main configuration (`Config.dmp`) and automatically includes Berry scripts (`.be` files) from the UFS for firmware 14.6.0 or newer.
+*   **Shelly:** Backs up the main configuration (`settings.json`/`config.json`) and additionally downloads all user scripts (`.js` files) for Gen 2/3 devices.
+*   **WLED:** Backs up the primary configuration (`cfg.json`) and all user presets (`presets.json`).
+*   **Awtrix Light:** Recursively backs up all files and folders stored on the device's internal flash storage.
+*   **openHASP:** Backs up all files stored on the root filesystem (e.g., UI `.jsonl` configurations, fonts).
+*   **OpenDTU** (untested alpha): Backs up the configuration (`config.json`).
+*   **AI-on-the-Edge** (untested alpha): Backs up the configuration (`config.ini`) and reference frames (`ref0.jpg`, `ref1.jpg`, `reference.jpg`).
 *   **AhoyDTU** (untested alpha)
-*   **AI-on-the-Edge** (untested alpha)
 
 
 ### 💾 Intelligent Backup System
@@ -38,11 +38,14 @@ HomeRecall supports configuration backup for a variety of popular firmware and d
 *   **Scanner:** Integrated multi-threaded network scanner to find devices within IP ranges.
 *   **Auto-Detection:** Automatically identifies device types, firmware versions, and hardware models (e.g., distinguishing a "Sonoff Basic" from a generic Tasmota device).
 *   **Live Feedback:** Real-time visibility of found devices during the scan process.
+*   **Multi-Interface Support:** Discovers and tracks devices with multiple network interfaces (e.g. Wi-Fi and Ethernet) and intelligently switches interfaces during backup if one fails.
+*   **MQTT Auto-Discovery:** Automatically detects and adds devices announcing themselves on your MQTT broker (supports Tasmota for now).
 
 ### 🛠 Integration & Deployment
 *   **Home Assistant:** First-class citizen support via Add-on. Supports **Ingress** for seamless UI integration 
 *   **Portable:** Runs on any platform supporting Docker or .NET 10 (Windows, Linux, macOS, Raspberry Pi).
 *   **Localization:** Interface available in English and German.
+*   **Configurable Logging:** Advanced log tracking capabilities configured seamlessly through Home Assistant Add-on options.
 
 ---
 
