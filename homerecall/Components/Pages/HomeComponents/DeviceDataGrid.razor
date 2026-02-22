@@ -14,7 +14,7 @@
             
             <TemplateColumn Title="@L["Devices_Table_Name"]" SortBy="@(x => x.Name)">
                 <CellTemplate>
-                    <MudLink Href="@($"/device/{context.Item.Id}")" Underline="Underline.Hover">@context.Item.Name</MudLink>
+                    <MudLink Href="@($"device/{context.Item.Id}")" Underline="Underline.Hover">@context.Item.Name</MudLink>
                 </CellTemplate>
             </TemplateColumn>
             

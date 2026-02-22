@@ -29,7 +29,7 @@
                 <MudCard Elevation="3">
                     <MudCardHeader>
                         <CardHeaderContent>
-                            <MudLink Href="@($"/device/{device.Id}")" Underline="Underline.Hover">
+                            <MudLink Href="@($"device/{device.Id}")" Underline="Underline.Hover">
                                 <MudText Typo="Typo.h6" Color="Color.Primary">@device.Name</MudText>
                             </MudLink>
                             @if (device.Interfaces.Any())
