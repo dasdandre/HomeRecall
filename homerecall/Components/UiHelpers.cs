@@ -1,5 +1,5 @@
-using MudBlazor;
 using HomeRecall.Persistence.Enums;
+using MudBlazor;
 
 namespace HomeRecall.Components;
 
@@ -18,6 +18,18 @@ public static class UiHelpers
             DeviceType.Awtrix => Color.Tertiary,
             DeviceType.OpenHasp => Color.Warning,
             _ => Color.Default
+        };
+    }
+
+    public static string GetStyleForDeviceSource(DeviceSource source)
+    {
+        return source switch
+        {
+            DeviceSource.Manual => "color: #1b5e20; background-color: rgba(27, 94, 32, 0.12);", // Dark green
+            DeviceSource.IpScan => "color: #2e7d32; background-color: rgba(46, 125, 50, 0.12);", // Green
+            DeviceSource.Mqtt => "color: #e65100; background-color: rgba(230, 81, 0, 0.12);",    // Orange
+            DeviceSource.Mdns => "color: #6a1b9a; background-color: rgba(106, 27, 154, 0.12);",  // Purple
+            _ => ""
         };
     }
 

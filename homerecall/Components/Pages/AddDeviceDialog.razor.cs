@@ -18,7 +18,7 @@ public partial class AddDeviceDialog : ComponentBase
 
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
 
-    private Device model = new Device();
+    private Device model = new Device { Source = DeviceSource.Manual };
     private string _ipAddress = string.Empty;
     private bool success;
     private bool _isScanning;

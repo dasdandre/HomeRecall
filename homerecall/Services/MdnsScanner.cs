@@ -254,7 +254,8 @@ public class MdnsScanner : BackgroundService
                     Name = discoveredDevice.Name,
                     Type = discoveredDevice.Type,
                     CurrentFirmwareVersion = discoveredDevice.FirmwareVersion,
-                    HardwareModel = discoveredDevice.HardwareModel
+                    HardwareModel = discoveredDevice.HardwareModel,
+                    Source = DeviceSource.Mdns
                 };
 
                 newEntity.Interfaces.Add(new NetworkInterface

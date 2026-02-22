@@ -49,6 +49,13 @@
                             <MudText Typo="Typo.body2">Model: @(device.HardwareModel ?? "-")</MudText>
                         </MudStack>
                         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <div class="d-flex align-center gap-2">
+                                <MudText Typo="Typo.body2">Source:</MudText>
+                                <MudChip T="string" Size="Size.Small" Style="@UiHelpers.GetStyleForDeviceSource(device.Source)">@device.Source</MudChip>
+                            </div>
+                            <MudText Typo="Typo.body2">Added: @device.CreatedAt.ToLocalTime().ToString("g")</MudText>
+                        </MudStack>
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                             <div class="d-flex align-center gap-1">
                                 <!-- Auto Backup Excluded Icon -->
                                 @if (device.AutoBackupOverride == false)

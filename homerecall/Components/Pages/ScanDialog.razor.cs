@@ -238,7 +238,8 @@ public partial class ScanDialog : ComponentBase, IDisposable
                     Type = d.Type,
                     HardwareModel = d.HardwareModel,
                     CurrentFirmwareVersion = d.FirmwareVersion,
-                    Interfaces = d.Interfaces
+                    Interfaces = d.Interfaces,
+                    Source = DeviceSource.IpScan
                 });
                 addedCount++;
             }

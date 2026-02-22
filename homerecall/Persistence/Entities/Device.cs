@@ -27,4 +27,8 @@ public class Device
     public int BackupFailures { get; set; } = 0;
 
     public List<Backup> Backups { get; set; } = new();
+
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    public DeviceSource Source { get; set; } = DeviceSource.Manual;
 }

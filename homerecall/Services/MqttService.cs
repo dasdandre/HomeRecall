@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using HomeRecall.Persistence;
 using HomeRecall.Persistence.Entities;
+using HomeRecall.Persistence.Enums;
 using HomeRecall.Services.Strategies;
 using HomeRecall.Utilities;
 using Microsoft.AspNetCore.DataProtection;
@@ -368,7 +369,8 @@ public class MqttService : IMqttService, IDisposable
                             Type = probedDevice.Type,
                             HardwareModel = probedDevice.HardwareModel,
                             CurrentFirmwareVersion = probedDevice.FirmwareVersion,
-                            Interfaces = probedDevice.Interfaces
+                            Interfaces = probedDevice.Interfaces,
+                            Source = DeviceSource.Mqtt
                         };
 
                         // add device to context

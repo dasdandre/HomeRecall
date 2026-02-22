@@ -33,6 +33,14 @@
             <PropertyColumn Property="x => x.CurrentFirmwareVersion" Title="Firmware" Filterable="false" />
             <PropertyColumn Property="x => x.HardwareModel" Title="Hardware" Filterable="false" />
             
+            <TemplateColumn Title="Source" SortBy="@(x => x.Source)">
+                <CellTemplate>
+                    <MudChip T="string" Size="Size.Small" Style="@UiHelpers.GetStyleForDeviceSource(context.Item.Source)">@context.Item.Source</MudChip>
+                </CellTemplate>
+            </TemplateColumn>
+            
+            <PropertyColumn Property="x => x.CreatedAt" Title="Added" />
+            
             <!-- Last Backup Column (includes status icons) -->
             <PropertyColumn Property="x => x.LastBackup" Title="@L["Devices_Table_LastBackup"]">
                     <CellTemplate>
