@@ -1,0 +1,182 @@
+@page "/device/{Id:int}"
+@using HomeRecall.Persistence
+@using HomeRecall.Persistence.Entities
+@using HomeRecall.Persistence.Enums
+@using HomeRecall.Components
+@using HomeRecall.Components.Pages.HomeComponents
+@using Microsoft.EntityFrameworkCore
+@inject BackupContext Context
+@inject NavigationManager Navigation
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <div class="d-flex align-center mb-6">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Color="Color.Default" OnClick="GoBack" Class="mr-2" />
+        <MudText Typo="Typo.h4">@(_device?.Name ?? "Loading...")</MudText>
+        <MudSpacer />
+        @if (_device != null)
+        {
+            <MudChip T="string" Color="@UiHelpers.GetColorForDeviceType(_device.Type)" Size="Size.Large" Variant="Variant.Filled">@_device.Type</MudChip>
+        }
+    </div>
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_device == null)
+    {
+        <MudAlert Severity="Severity.Error">Device not found.</MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            <!-- General Info -->
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Elevation="3" Class="h-100">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">General Info</MudText>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                            <MudIcon Icon="@Icons.Material.Filled.Info" Color="Color.Default" />
+                        </CardHeaderActions>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudList T="string" Dense="true">
+                            <MudListItem T="string">
+                                <div class="d-flex justify-space-between w-100">
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Hardware Model</MudText>
+                                    <MudText Typo="Typo.body2">@(_device.HardwareModel ?? "-")</MudText>
+                                </div>
+                            </MudListItem>
+                            <MudDivider />
+                            <MudListItem T="string">
+                                <div class="d-flex justify-space-between w-100">
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Firmware</MudText>
+                                    <MudText Typo="Typo.body2">@(_device.CurrentFirmwareVersion ?? "-")</MudText>
+                                </div>
+                            </MudListItem>
+                            <MudDivider />
+                            <MudListItem T="string">
+                                <div class="d-flex justify-space-between align-center w-100">
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Added</MudText>
+                                    <MudText Typo="Typo.body2">@_device.CreatedAt.ToLocalTime().ToString("g")</MudText>
+                                </div>
+                            </MudListItem>
+                            <MudDivider />
+                            <MudListItem T="string">
+                                <div class="d-flex justify-space-between align-center w-100">
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Discovery Source</MudText>
+                                    <MudChip T="string" Size="Size.Small" Style="@UiHelpers.GetStyleForDeviceSource(_device.Source)">@_device.Source</MudChip>
+                                </div>
+                            </MudListItem>
+                        </MudList>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <!-- Network Interfaces -->
+            <MudItem xs="12" sm="6" md="8">
+                <MudCard Elevation="3" Class="h-100">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Network Interfaces</MudText>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                            <MudIcon Icon="@Icons.Material.Filled.Router" Color="Color.Default" />
+                        </CardHeaderActions>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudTable Items="@_device.Interfaces" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" Dense="true">
+                            <HeaderContent>
+                                <MudTh>Type</MudTh>
+                                <MudTh>IP Address</MudTh>
+                                <MudTh>MAC Address</MudTh>
+                                <MudTh>Hostname</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="iface">
+                                <MudTd DataLabel="Type">
+                                    <MudIcon Icon="@(iface.Type == NetworkInterfaceType.Wifi ? Icons.Material.Filled.Wifi : Icons.Material.Filled.SettingsEthernet)" Size="Size.Small" Class="mr-2" />
+                                    @iface.Type
+                                </MudTd>
+                                <MudTd DataLabel="IP Address">
+                                    <MudLink Href="@($"http://{iface.IpAddress}")" Target="_blank" Underline="Underline.Hover">@iface.IpAddress</MudLink>
+                                </MudTd>
+                                <MudTd DataLabel="MAC Address">@(iface.MacAddress ?? "-")</MudTd>
+                                <MudTd DataLabel="Hostname">@(iface.Hostname ?? "-")</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <!-- Backup Heatmap -->
+            <MudItem xs="12">
+                <MudCard Elevation="3">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Backup History</MudText>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                            <MudIcon Icon="@Icons.Material.Filled.History" Color="Color.Default" />
+                        </CardHeaderActions>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudHidden Breakpoint="Breakpoint.SmAndDown">
+                            <BackupHeatmap Backups="@_device.Backups" DaysToShow="365" />
+                        </MudHidden>
+                        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+                            <BackupHeatmap Backups="@_device.Backups" DaysToShow="90" />
+                        </MudHidden>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <!-- Logs Placeholder -->
+            <MudItem xs="12">
+                <MudCard Elevation="3">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Logs</MudText>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                            <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Default" />
+                        </CardHeaderActions>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <div class="d-flex flex-column align-center justify-center pa-8">
+                            <MudIcon Icon="@Icons.Material.Filled.Construction" Size="Size.Large" Color="Color.Warning" Class="mb-4" />
+                            <MudText Typo="Typo.h6">Coming Soon</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary text-center mt-2">
+                                Detailed, real-time device logs and system activity will be displayed here in a future update.
+                            </MudText>
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Device? _device;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+        _device = await Context.Devices
+            .Include(d => d.Interfaces)
+            .Include(d => d.Backups)
+            .FirstOrDefaultAsync(d => d.Id == Id);
+        _isLoading = false;
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/");
+    }
+}
