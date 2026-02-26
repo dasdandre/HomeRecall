@@ -3,6 +3,7 @@
 <!-- Header section with action buttons (Backup, Delete, Scan, Add) -->
 <DeviceActionsHeader 
     HasSelectedItems="@_selectedItems.Any()" 
+    DevicesCount="@_devices.Count" 
     SelectedItemsCount="@_selectedItems.Count" 
     IsMassBackingUp="@_isMassBackingUp"
     OnBackupSelected="BackupSelected"

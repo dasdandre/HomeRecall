@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "DotRush: HomeRecall",
+            "type": "dotrush",
+            "request": "launch",
+            "project": "${workspaceFolder}/homerecall/HomeRecall.csproj",
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "CircuitOptions__DetailedErrors": "true"
+            }
+        }
+    ]
+}

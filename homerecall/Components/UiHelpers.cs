@@ -9,16 +9,47 @@ public static class UiHelpers
     {
         return type switch
         {
-            DeviceType.Tasmota => Color.Warning,
-            DeviceType.Wled => Color.Error,
-            DeviceType.Shelly => Color.Info,
-            DeviceType.ShellyGen2 => Color.Info,
-            DeviceType.OpenDtu => Color.Success,
-            DeviceType.AiOnTheEdge => Color.Secondary,
-            DeviceType.Awtrix => Color.Tertiary,
-            DeviceType.OpenHasp => Color.Warning,
+            // DeviceType.Tasmota => Color.Warning,
+            // DeviceType.Wled => Color.Error,
+            // DeviceType.Shelly => Color.Info,
+            // DeviceType.ShellyGen2 => Color.Info,
+            // DeviceType.OpenDtu => Color.Success,
+            // DeviceType.AiOnTheEdge => Color.Secondary,
+            // DeviceType.Awtrix => Color.Tertiary,
+            // DeviceType.OpenHasp => Color.Warning,
             _ => Color.Default
         };
+    }
+
+    public static string GetIconForDeviceType(DeviceType type)
+    {
+        return type switch
+        {
+            DeviceType.Tasmota => Icons.Material.Outlined.ToggleOn,
+            DeviceType.Wled => Icons.Material.Outlined.ColorLens,
+            DeviceType.Shelly => Icons.Material.Outlined.Router,
+            DeviceType.ShellyGen2 => Icons.Material.Outlined.Router,
+            DeviceType.OpenDtu => Icons.Material.Outlined.WbSunny,
+            DeviceType.AiOnTheEdge => Icons.Material.Outlined.CameraAlt,
+            DeviceType.Awtrix => Icons.Material.Outlined.Watch,
+            DeviceType.OpenHasp => Icons.Material.Outlined.TouchApp,
+            _ => Icons.Material.Outlined.DevicesOther
+        };
+    }
+
+    public static long GetIpAddressSortValue(string? ipAddress)
+    {
+        if (System.Net.IPAddress.TryParse(ipAddress, out var parsedIp))
+        {
+            var bytes = parsedIp.GetAddressBytes();
+            if (bytes.Length == 4)
+            {
+                // Returns a long constructed from the 4 bytes.
+                // Cast to long happens before shift to prevent negative numbers.
+                return ((long)bytes[0] << 24) | ((long)bytes[1] << 16) | ((long)bytes[2] << 8) | bytes[3];
+            }
+        }
+        return -1;
     }
 
     public static string GetStyleForDeviceSource(DeviceSource source)

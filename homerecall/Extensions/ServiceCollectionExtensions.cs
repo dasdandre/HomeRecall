@@ -81,7 +81,13 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMqttService, MqttService>();
 
         // Add Razor Components with Interactive Server Mode support
-        services.AddRazorComponents().AddInteractiveServerComponents();
+        services.AddRazorComponents().AddInteractiveServerComponents(options =>
+        {
+            if (bool.TryParse(Environment.GetEnvironmentVariable("CircuitOptions__DetailedErrors"), out bool detailedErrors) && detailedErrors)
+            {
+                options.DetailedErrors = true;
+            }
+        });
     }
 
 

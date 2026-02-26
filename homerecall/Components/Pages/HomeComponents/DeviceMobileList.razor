@@ -1,111 +1,92 @@
+@using HomeRecall.Persistence.Enums
+@inject NavigationManager Navigation
+
 <!-- Mobile View: Card List -->
 <!-- Displayed on small screens only -->
 <MudHidden Breakpoint="Breakpoint.MdAndUp">
     
     <!-- Filter Controls for Mobile -->
-    <MudGrid class="mb-4">
-        <MudItem xs="8">
-            <MudTextField @bind-Value="SearchString" 
-                         TextChanged="OnSearchChanged"
-                         Adornment="Adornment.Start" 
-                         AdornmentIcon="@Icons.Material.Filled.Search" 
-                         IconSize="Size.Medium"></MudTextField>                    
-        </MudItem>    
-        <MudItem xs="4">
-            <MudSelect T="DeviceType?" Value="FilterType" ValueChanged="OnFilterChanged" Clearable="true" Placeholder="@L["Devices_Table_Type"]">
-                @foreach (DeviceType type in Enum.GetValues(typeof(DeviceType)))
-                {
-                    <MudSelectItem Value="(DeviceType?)type">@type</MudSelectItem>
-                }
-            </MudSelect>
-        </MudItem>
-    </MudGrid>           
+    <div class="px-4 py-2 mb-2 d-flex gap-2">
+        <MudTextField @bind-Value="SearchString" TextChanged="OnSearchChanged"
+                      Placeholder="@L["Common_Search"]" Adornment="Adornment.Start" Immediate="true"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" 
+                      Variant="Variant.Outlined" Margin="Margin.Dense" 
+                      Style="background-color: var(--mud-palette-surface); border-radius: 8px; flex-grow: 1;"></MudTextField>
+        <MudSelect T="DeviceType?" Value="FilterType" ValueChanged="OnFilterChanged" Clearable="true" Placeholder="@L["Devices_Table_Type"]" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 140px; background-color: var(--mud-palette-surface); border-radius: 8px;">
+            @foreach (DeviceType type in Enum.GetValues(typeof(DeviceType)))
+            {
+                <MudSelectItem Value="(DeviceType?)type">@type</MudSelectItem>
+            }
+        </MudSelect>
+    </div>
 
-    <!-- Device Cards -->
-    <MudGrid Class="mb-4">
-        @foreach (var device in Devices.Where(FilterFunc))
+    <!-- Device Flat List -->
+    <div class="d-flex flex-column pb-16">
+        @foreach (var device in Devices.Where(FilterFunc).OrderBy(d => d.Name))
         {
-            <MudItem xs="12">
-                <MudCard Elevation="3">
-                    <MudCardHeader>
-                        <CardHeaderContent>
-                            <MudLink Href="@($"device/{device.Id}")" Underline="Underline.Hover">
-                                <MudText Typo="Typo.h6" Color="Color.Primary">@device.Name</MudText>
-                            </MudLink>
-                            @if (device.Interfaces.Any())
-                            {
-                                var ip = device.Interfaces.First().IpAddress;
-                                <MudLink Href="@($"http://{ip}")" Target="_blank" Underline="Underline.Hover">@ip</MudLink>
-                            }
-                        </CardHeaderContent>
-                        <CardHeaderActions>
-                            <MudChip T="string" Color="@UiHelpers.GetColorForDeviceType(device.Type)" Size="Size.Small" Variant="Variant.Text">@device.Type</MudChip>
-                        </CardHeaderActions>
-                    </MudCardHeader>
-                    <MudCardContent>
-                        <!-- Status Info (Firmware, AutoBackup, Backup Age) -->
-                        <MudStack Row="true" Justify="Justify.SpaceBetween">
-                            <MudText Typo="Typo.body2">Firmware: @(device.CurrentFirmwareVersion ?? "-")</MudText>                            
-                        </MudStack>
-                        <MudStack Row="true" Justify="Justify.SpaceBetween">
-                            <MudText Typo="Typo.body2">Model: @(device.HardwareModel ?? "-")</MudText>
-                        </MudStack>
-                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                            <div class="d-flex align-center gap-1">
-                                <!-- Auto Backup Excluded Icon -->
-                                @if (device.AutoBackupOverride == false)
-                                {
-                                    <MudTooltip Text="@L["Devices_AutoBackup_Excluded"]">
-                                        <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Color="Color.Default" Size="Size.Small" />
-                                    </MudTooltip>
-                                }
-                                <!-- Failure Icon -->
-                                @if (device.BackupFailures > 0)
-                                {
-                                    <MudTooltip Text="@L["Devices_Backup_Failure_LastFailed"]">
-                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" />
-                                    </MudTooltip>
-                                }
-                                
-                                <!-- Last Backup Time -->
-                                @if (device.LastBackup.HasValue)
-                                {
-                                    var daysSince = (DateTime.UtcNow - device.LastBackup.Value).TotalDays;
-                                    var color = daysSince > 30 ? Color.Error : (daysSince > 7 ? Color.Warning : Color.Default);
-                                    
-                                    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="@color"/>
-                                    <MudText Typo="Typo.body2">@device.LastBackup.Value.ToLocalTime().ToString("g")</MudText>
-                                }
-                            </div>
-                        </MudStack>    
-                    </MudCardContent>
-                    <MudCardActions>
-                        <!-- Action Buttons: Backup, History, Menu (Edit/Delete) -->
-                        <MudButton Variant="Variant.Text" 
-                                   Color="Color.Primary" 
-                                   StartIcon="@(IsBackingUp.Contains(device.Id) ? null : Icons.Material.Filled.Backup)"
-                                   Disabled="@(IsBackingUp.Contains(device.Id))"
-                                   OnClick="@(() => OnBackupDevice.InvokeAsync(device))">
-                            @if (IsBackingUp.Contains(device.Id))
-                            {
-                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
-                            }
-                            else
-                            {
-                                @L["Common_Backup"]
-                            }
-                        </MudButton>
-                        <MudButton Variant="Variant.Text" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.History" OnClick="@(() => OnNavigateToBackups.InvokeAsync(device.Id))">
-                            @L["Common_Backups"] (@device.Backups.Count)
-                        </MudButton>
-                        <MudSpacer />
-                        <MudMenu Icon="@Icons.Material.Filled.MoreVert">
-                            <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => OnEditDevice.InvokeAsync(device))">@L["Common_Edit"]</MudMenuItem>
-                            <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => OnDeleteDevice.InvokeAsync(device))" IconColor="Color.Error">@L["Common_Delete"]</MudMenuItem>
-                        </MudMenu>
-                    </MudCardActions>
-                </MudCard>
-            </MudItem>
+            <div class="d-flex align-center px-4 py-3" style="border-bottom: 1px solid var(--mud-palette-lines-default); background-color: transparent;">
+                
+                <!-- Icon on the left -->
+                <MudAvatar Color="Color.Transparent" Size="Size.Medium" Class="mr-4 flex-shrink-0">
+                    <MudIcon Icon="@UiHelpers.GetIconForDeviceType(device.Type)" Color="@UiHelpers.GetColorForDeviceType(device.Type)" />
+                </MudAvatar>
+
+                <!-- Middle Content: Name + Details -->
+                <div class="d-flex flex-column flex-grow-1 overflow-hidden" style="cursor: pointer;" @onclick="@(() => Navigation.NavigateTo($"device/{device.Id}"))">
+                    <MudText Typo="Typo.body1" Style="font-weight: 500;" Class="text-truncate">@device.Name</MudText>
+                    @if (device.Interfaces.Any())
+                    {
+                        var ip = device.Interfaces.First().IpAddress;
+                        <MudText Typo="Typo.caption" Class="mud-text-primary text-truncate">@ip</MudText>
+                    }
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary text-truncate">
+                        @device.Type@(device.HardwareModel != null ? $" · {device.HardwareModel}" : "")@(device.CurrentFirmwareVersion != null ? $" · {device.CurrentFirmwareVersion}" : "")
+                    </MudText>
+                </div>
+
+                <!-- Right Side: Status and Actions -->
+                <div class="d-flex align-center ml-2 flex-shrink-0">
+                    @if (device.AutoBackupOverride == false)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Color="Color.Default" Size="Size.Small" Class="mr-1" />
+                    }
+                    @if (device.BackupFailures > 0)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" Class="mr-1" />
+                    }
+                    
+                    @if (device.LastBackup.HasValue)
+                    {
+                        var daysSince = (DateTime.UtcNow - device.LastBackup.Value).TotalDays;
+                        var color = daysSince > 30 ? Color.Error : (daysSince > 7 ? Color.Warning : Color.Success);
+                        <MudIcon Icon="@(color == Color.Success ? Icons.Material.Filled.CheckCircleOutline : Icons.Material.Filled.WarningAmber)" Size="Size.Small" Color="@color" Class="mr-1"/>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Default" Class="mr-1">—</MudText>
+                    }
+
+                    <!-- Dropdown Menu for Actions -->
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Medium" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
+                        @if (IsBackingUp.Contains(device.Id))
+                        {
+                            <MudMenuItem Disabled="true">
+                                <div class="d-flex align-center gap-2">
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                    <MudText>@L["Common_BackingUp"]</MudText>
+                                </div>
+                            </MudMenuItem>
+                        }
+                        else
+                        {
+                            <MudMenuItem Icon="@Icons.Material.Filled.Backup" OnClick="@(() => OnBackupDevice.InvokeAsync(device))">@L["Devices_Table_LastBackup"]</MudMenuItem>
+                        }
+                        <MudMenuItem Icon="@Icons.Material.Filled.History" OnClick="@(() => OnNavigateToBackups.InvokeAsync(device.Id))">Backups (@device.Backups.Count)</MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@(() => OnEditDevice.InvokeAsync(device))">@L["Common_Edit"]</MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="@(() => OnDeleteDevice.InvokeAsync(device))" IconColor="Color.Error">@L["Common_Delete"]</MudMenuItem>
+                    </MudMenu>
+                </div>
+            </div>
         }
-    </MudGrid>
+    </div>
 </MudHidden>
